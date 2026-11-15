@@ -3537,10 +3537,14 @@
       <td>${formatDate(d.Deposit_Date)}</td>
       <td><span style="font-family:monospace;">${d.Reference_No || '-'}</span></td>
       <td>${d.Notes || '-'}</td>
-      <td class="text-right">
+      <td class="text-right" style="white-space:nowrap;">
         <button class="btn-action-sm" onclick="openEditDepositModal('${d.Deposit_ID}')" title="Edit Deposit">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           <span>Edit</span>
+        </button>
+        <button class="btn-action-sm" onclick="deleteDepositRecord('${d.Deposit_ID}')" title="Delete & Reverse Deposit" style="margin-left:0.35rem; color:var(--danger-red); border-color:rgba(235,87,87,0.35);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Delete</span>
         </button>
       </td>
     </tr>
@@ -3640,11 +3644,23 @@
     }
 
     const editId = document.getElementById('depEditId') ? document.getElementById('depEditId').value : '';
+    const depDateVal = document.getElementById('depDate').value || getLocalDateString();
+
+    // Duplicate entry guard (detects same shareholder + same amount on same date)
+    if (!editId) {
+      const isDup = state.data.deposits.some(d => d.Shareholder_ID === shId && Number(d.Amount) === amt && String(d.Deposit_Date).startsWith(depDateVal));
+      if (isDup) {
+        if (!confirm(`Duplicate Warning:\nAn identical deposit of ৳ ${amt.toLocaleString()} was already recorded for this shareholder on ${depDateVal}!\n\nAre you sure you want to add another identical entry?`)) {
+          return;
+        }
+      }
+    }
+
     const payload = {
       Deposit_ID: editId || undefined,
       Shareholder_ID: shId,
       Amount: amt,
-      Deposit_Date: document.getElementById('depDate').value || getLocalDateString(),
+      Deposit_Date: depDateVal,
       Reference_No: document.getElementById('depRef').value.trim(),
       Notes: document.getElementById('depNotes').value.trim()
     };
@@ -3684,6 +3700,14 @@
       return;
     }
 
+    // Duplicate entry guard for quick deposit
+    const isDup = state.data.deposits.some(d => d.Shareholder_ID === shId && Number(d.Amount) === amt && String(d.Deposit_Date).startsWith(date));
+    if (isDup) {
+      if (!confirm(`Duplicate Warning:\nAn identical deposit of ৳ ${amt.toLocaleString()} was already recorded for this shareholder on ${date}!\n\nAre you sure you want to proceed?`)) {
+        return;
+      }
+    }
+
     const payload = {
       Shareholder_ID: shId,
       Amount: amt,
@@ -3697,6 +3721,19 @@
       document.getElementById('quickDepAmount').value = '';
       document.getElementById('quickDepRef').value = '';
       document.getElementById('quickDepAmount').focus();
+      loadAllApplicationData();
+    });
+  }
+
+  function deleteDepositRecord(depId) {
+    const d = state.data.deposits.find(x => x.Deposit_ID === depId);
+    const amtStr = d ? `৳ ${Number(d.Amount).toLocaleString()}` : '';
+    const shName = d ? d.Shareholder_Name : '';
+    if (!confirm(`Delete Deposit ${depId}?\n\nAmount: ${amtStr}\nShareholder: ${shName}\n\nThis will permanently remove this record and automatically deduct ${amtStr} from ${shName}'s balance and share count.`)) {
+      return;
+    }
+    callBackend('deleteDeposit', depId, res => {
+      showToast(res.message || `Deposit ${depId} deleted and balance reversed!`);
       loadAllApplicationData();
     });
   }
@@ -3725,10 +3762,14 @@
       <td>${formatDate(w.Withdrawal_Date)}</td>
       <td><span style="font-family:monospace;">${w.Reference_No || '-'}</span></td>
       <td>${w.Notes || '-'}</td>
-      <td class="text-right">
+      <td class="text-right" style="white-space:nowrap;">
         <button class="btn-action-sm" onclick="openEditWithdrawalModal('${w.Withdrawal_ID}')" title="Edit Withdrawal">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           <span>Edit</span>
+        </button>
+        <button class="btn-action-sm" onclick="deleteWithdrawalRecord('${w.Withdrawal_ID}')" title="Delete & Restore Withdrawal" style="margin-left:0.35rem; color:var(--danger-red); border-color:rgba(235,87,87,0.35);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Delete</span>
         </button>
       </td>
     </tr>
@@ -3857,6 +3898,19 @@
     callBackend(action, payload, res => {
       closeModal('withdrawalModal');
       showToast(res.message || (editId ? 'Withdrawal updated successfully!' : 'Withdrawal processed successfully!'));
+      loadAllApplicationData();
+    });
+  }
+
+  function deleteWithdrawalRecord(wthId) {
+    const w = state.data.withdrawals.find(x => x.Withdrawal_ID === wthId);
+    const amtStr = w ? `৳ ${Number(w.Amount).toLocaleString()}` : '';
+    const shName = w ? w.Shareholder_Name : '';
+    if (!confirm(`Delete Withdrawal ${wthId}?\n\nAmount: ${amtStr}\nShareholder: ${shName}\n\nThis will remove this record and restore ${amtStr} back to ${shName}'s available balance and shares.`)) {
+      return;
+    }
+    callBackend('deleteWithdrawal', wthId, res => {
+      showToast(res.message || `Withdrawal ${wthId} deleted and balance restored!`);
       loadAllApplicationData();
     });
   }
@@ -5188,6 +5242,25 @@
           callback({ success: true, message: `Deposit ${args.Deposit_ID} updated!` });
           break;
         }
+        case 'deleteDeposit': {
+          const idx = db.deposits.findIndex(d => d.Deposit_ID === args);
+          if (idx !== -1) {
+            const dep = db.deposits[idx];
+            const amt = Number(dep.Amount) || 0;
+            const sh = db.shareholders.find(s => s.Shareholder_ID === dep.Shareholder_ID);
+            if (sh) {
+              sh.Total_Deposited = Math.max(0, (Number(sh.Total_Deposited) || 0) - amt);
+              sh.Available_Balance = sh.Total_Deposited - (Number(sh.Total_Withdrawn) || 0);
+              sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+              sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+            }
+            db.deposits.splice(idx, 1);
+            const txnIdx = db.transactions.findIndex(t => t.Type === 'DEPOSIT' && (t.Reference_No === dep.Reference_No || t.Reference_No === dep.Deposit_ID || (t.Entity_ID === dep.Shareholder_ID && Math.abs(Number(t.Amount) - amt) < 0.01)));
+            if (txnIdx !== -1) db.transactions.splice(txnIdx, 1);
+          }
+          callback({ success: true, message: `Deposit ${args} deleted and balance reversed!` });
+          break;
+        }
         case 'getWithdrawals':
           callback(db.withdrawals);
           break;
@@ -5259,6 +5332,25 @@
             }
           }
           callback({ success: true, message: `Withdrawal ${args.Withdrawal_ID} updated!` });
+          break;
+        }
+        case 'deleteWithdrawal': {
+          const idx = db.withdrawals.findIndex(w => w.Withdrawal_ID === args);
+          if (idx !== -1) {
+            const wth = db.withdrawals[idx];
+            const amt = Number(wth.Amount) || 0;
+            const sh = db.shareholders.find(s => s.Shareholder_ID === wth.Shareholder_ID);
+            if (sh) {
+              sh.Total_Withdrawn = Math.max(0, (Number(sh.Total_Withdrawn) || 0) - amt);
+              sh.Available_Balance = (Number(sh.Total_Deposited) || 0) - sh.Total_Withdrawn;
+              sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+              sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+            }
+            db.withdrawals.splice(idx, 1);
+            const txnIdx = db.transactions.findIndex(t => t.Type === 'WITHDRAWAL' && (t.Reference_No === wth.Reference_No || t.Reference_No === wth.Withdrawal_ID || (t.Entity_ID === wth.Shareholder_ID && Math.abs(Number(t.Amount) - amt) < 0.01)));
+            if (txnIdx !== -1) db.transactions.splice(txnIdx, 1);
+          }
+          callback({ success: true, message: `Withdrawal ${args} deleted and balance restored!` });
           break;
         }
         case 'getBorrowers':

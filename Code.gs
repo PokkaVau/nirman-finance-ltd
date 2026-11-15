@@ -104,6 +104,9 @@ function doPost(e) {
       case 'updateDeposit':
         responseObj = updateDeposit(data);
         break;
+      case 'deleteDeposit':
+        responseObj = deleteDeposit(data);
+        break;
       case 'getWithdrawals':
         responseObj = getWithdrawals();
         break;
@@ -112,6 +115,9 @@ function doPost(e) {
         break;
       case 'updateWithdrawal':
         responseObj = updateWithdrawal(data);
+        break;
+      case 'deleteWithdrawal':
+        responseObj = deleteWithdrawal(data);
         break;
       case 'getBorrowers':
         responseObj = getBorrowers();
@@ -851,6 +857,59 @@ function updateDeposit(data) {
   }
 }
 
+function deleteDeposit(depositId) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(CONFIG.LOCK_TIMEOUT_MS);
+    if (!depositId) return { success: false, error: 'Deposit ID required.' };
+
+    const ss = getDB();
+    const depSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DEPOSITS);
+    const depList = sheetToJSON(depSheet);
+    const depIndex = depList.findIndex(d => d.Deposit_ID === depositId);
+
+    if (depIndex === -1) return { success: false, error: 'Deposit record not found.' };
+
+    const dep = depList[depIndex];
+    const amount = Number(dep.Amount) || 0;
+    const shId = dep.Shareholder_ID;
+
+    // Delete deposit row
+    depSheet.deleteRow(depIndex + 2);
+
+    // Reverse shareholder balance & shares
+    const shSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SHAREHOLDERS);
+    const shList = sheetToJSON(shSheet);
+    const shIndex = shList.findIndex(s => s.Shareholder_ID === shId);
+    if (shIndex !== -1) {
+      const sh = shList[shIndex];
+      const newTotalDeposited = Math.max(0, (Number(sh.Total_Deposited) || 0) - amount);
+      const newBalance = newTotalDeposited - (Number(sh.Total_Withdrawn) || 0);
+      const newShares = Math.floor(newBalance / CONFIG.SHARE_UNIT_PRICE);
+      const shRow = shIndex + 2;
+      shSheet.getRange(shRow, 8).setValue(newTotalDeposited);
+      shSheet.getRange(shRow, 10).setValue(newBalance);
+      shSheet.getRange(shRow, 11).setValue(newShares);
+      shSheet.getRange(shRow, 12).setValue(newShares * CONFIG.SHARE_UNIT_PRICE);
+    }
+
+    // Delete matching transaction row
+    const txnSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TRANSACTIONS);
+    const txnList = sheetToJSON(txnSheet);
+    const txnIdx = txnList.findIndex(t => t.Type === 'DEPOSIT' && (t.Reference_No === dep.Reference_No || t.Reference_No === depositId || (t.Entity_ID === shId && Math.abs(Number(t.Amount) - amount) < 0.01)));
+    if (txnIdx !== -1) {
+      txnSheet.deleteRow(txnIdx + 2);
+    }
+
+    logAudit('DELETE_DEPOSIT', 'Deposits', depositId, 'Admin', `Deposit ${depositId} of ৳ ${amount} deleted/reversed for ${dep.Shareholder_Name}`);
+    return { success: true, message: `Deposit ${depositId} deleted. ৳ ${amount.toLocaleString()} reversed from balance.` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /**
  * ============================================================================
  * WITHDRAWAL MANAGEMENT
@@ -1038,6 +1097,59 @@ function updateWithdrawal(data) {
 
     logAudit('UPDATE_WITHDRAWAL', 'Withdrawals', wthId, 'Admin', `Withdrawal ${wthId} updated: ৳ ${oldAmount} -> ৳ ${newAmount}`);
     return { success: true, message: `Withdrawal ${wthId} updated successfully!` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteWithdrawal(withdrawalId) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(CONFIG.LOCK_TIMEOUT_MS);
+    if (!withdrawalId) return { success: false, error: 'Withdrawal ID required.' };
+
+    const ss = getDB();
+    const wthSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.WITHDRAWALS);
+    const wthList = sheetToJSON(wthSheet);
+    const wthIndex = wthList.findIndex(w => w.Withdrawal_ID === withdrawalId);
+
+    if (wthIndex === -1) return { success: false, error: 'Withdrawal record not found.' };
+
+    const wth = wthList[wthIndex];
+    const amount = Number(wth.Amount) || 0;
+    const shId = wth.Shareholder_ID;
+
+    // Delete withdrawal row
+    wthSheet.deleteRow(wthIndex + 2);
+
+    // Reverse shareholder balance & shares
+    const shSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SHAREHOLDERS);
+    const shList = sheetToJSON(shSheet);
+    const shIndex = shList.findIndex(s => s.Shareholder_ID === shId);
+    if (shIndex !== -1) {
+      const sh = shList[shIndex];
+      const newTotalWithdrawn = Math.max(0, (Number(sh.Total_Withdrawn) || 0) - amount);
+      const newBalance = (Number(sh.Total_Deposited) || 0) - newTotalWithdrawn;
+      const newShares = Math.floor(newBalance / CONFIG.SHARE_UNIT_PRICE);
+      const shRow = shIndex + 2;
+      shSheet.getRange(shRow, 9).setValue(newTotalWithdrawn);
+      shSheet.getRange(shRow, 10).setValue(newBalance);
+      shSheet.getRange(shRow, 11).setValue(newShares);
+      shSheet.getRange(shRow, 12).setValue(newShares * CONFIG.SHARE_UNIT_PRICE);
+    }
+
+    // Delete matching transaction row
+    const txnSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TRANSACTIONS);
+    const txnList = sheetToJSON(txnSheet);
+    const txnIdx = txnList.findIndex(t => t.Type === 'WITHDRAWAL' && (t.Reference_No === wth.Reference_No || t.Reference_No === withdrawalId || (t.Entity_ID === shId && Math.abs(Number(t.Amount) - amount) < 0.01)));
+    if (txnIdx !== -1) {
+      txnSheet.deleteRow(txnIdx + 2);
+    }
+
+    logAudit('DELETE_WITHDRAWAL', 'Withdrawals', withdrawalId, 'Admin', `Withdrawal ${withdrawalId} of ৳ ${amount} deleted/reversed for ${wth.Shareholder_Name}`);
+    return { success: true, message: `Withdrawal ${withdrawalId} deleted. ৳ ${amount.toLocaleString()} restored to balance.` };
   } catch (err) {
     return { success: false, error: err.message };
   } finally {
