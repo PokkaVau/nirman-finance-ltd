@@ -1,0 +1,20 @@
+{
+  "name": "nirman-finance-ltd",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Nirman Finance LTD — Professional Financial Management Platform",
+  "scripts": {
+    "build": "node build_local.js",
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "finance",
+    "financial-management",
+    "google-apps-script",
+    "google-sheets",
+    "dashboard",
+    "vercel"
+  ],
+  "author": "Nirman Finance LTD",
+  "license": "UNLICENSED"
+}

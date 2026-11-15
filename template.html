@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nirman Finance LTD — Financial Management Platform</title>
+  
+  <!-- Google Apps Script Styles Inclusion -->
+  <?!= include('Styles'); ?>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+
+    <!-- ====================================================================
+         SIDEBAR NAVIGATION
+         ==================================================================== -->
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <img id="sidebarLogo" class="brand-logo-img" alt="Nirman Finance Logo" src="Logo.jpg">
+        <div class="brand-text-block">
+          <span class="brand-title">NIRMAN</span>
+          <span class="brand-tagline">FINANCE LTD</span>
+        </div>
+        <button class="sidebar-close-btn" onclick="toggleSidebar(false)" aria-label="Close Navigation">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <span class="nav-group-title">Overview</span>
+        <a class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span>Dashboard</span>
+        </a>
+
+        <span class="nav-group-title">Shareholders & Capital</span>
+        <a class="nav-item" data-view="shareholders" onclick="switchView('shareholders')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Shareholders</span>
+        </a>
+        <a class="nav-item" data-view="deposits" onclick="switchView('deposits')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20"/><path d="m17 17-5 5-5-5"/><rect x="4" y="2" width="16" height="6" rx="2"/></svg>
+          <span>Deposits</span>
+        </a>
+        <a class="nav-item" data-view="withdrawals" onclick="switchView('withdrawals')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22V2"/><path d="m7 7 5-5 5 5"/><rect x="4" y="16" width="16" height="6" rx="2"/></svg>
+          <span>Withdrawals</span>
+        </a>
+
+        <span class="nav-group-title">Loan Operations (0% Int)</span>
+        <a class="nav-item" data-view="borrowers" onclick="switchView('borrowers')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M19 11l2 2 4-4"/></svg>
+          <span>Borrowers</span>
+        </a>
+        <a class="nav-item" data-view="loans" onclick="switchView('loans')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          <span>Loans</span>
+        </a>
+        <a class="nav-item" data-view="installments" onclick="switchView('installments')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Installments</span>
+        </a>
+
+        <span class="nav-group-title">Accounting & System</span>
+        <a class="nav-item" data-view="transactions" onclick="switchView('transactions')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Transactions</span>
+        </a>
+        <a class="nav-item" data-view="reports" onclick="switchView('reports')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Reports</span>
+        </a>
+        <a class="nav-item" data-view="settings" onclick="switchView('settings')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-badge">
+          <div class="admin-avatar">NF</div>
+          <div class="admin-info">
+            <span class="admin-name">Admin Officer</span>
+            <span class="admin-status">
+              <span class="status-dot-pulse"></span> Authorized Portal
+            </span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ====================================================================
+         MAIN STAGE
+         ==================================================================== -->
+    <main class="main-stage">
+      
+      <!-- Top Island Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <button class="menu-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle Navigation">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="page-header-info">
+            <h1 id="currentViewTitle">Financial Dashboard</h1>
+            <p id="currentViewSubtitle">Real-time financial performance and portfolio liquidity overview</p>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="header-date-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="liveClockDate">15 Nov 2026</span>
+          </div>
+          <button class="btn-island btn-island-primary" onclick="openQuickActionModal()">
+            <span>Quick Action</span>
+            <div class="btn-icon-circle">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content Container -->
+      <div class="content-wrapper">
+
+        <!-- ================================================================
+             1. DASHBOARD VIEW
+             ================================================================ -->
+        <section id="view-dashboard" class="content-section">
+          
+          <!-- Summary Cards (8 Key Metrics) -->
+          <div class="metrics-grid">
+            
+            <!-- 1. Total Shareholders -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">Equity</div>
+                    <div class="metric-title">Total Shareholders</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-navy">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value tnum" id="metricTotalShareholders">0</div>
+                <div class="metric-sub">Registered equity holders</div>
+              </div>
+            </div>
+
+            <!-- 2. Total Shares -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-green">1 Share = ৳1,000</div>
+                    <div class="metric-title">Total Shares</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-green">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value tnum" id="metricTotalShares">0</div>
+                <div class="metric-sub">Capital: <span id="metricShareCapital">৳ 0</span></div>
+              </div>
+            </div>
+
+            <!-- 3. Total Deposits -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-green">Inflow</div>
+                    <div class="metric-title">Total Deposits</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-green">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="m17 17-5 5-5-5"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value metric-value-green tnum" id="metricTotalDeposits">৳ 0</div>
+                <div class="metric-sub">Gross member deposits</div>
+              </div>
+            </div>
+
+            <!-- 4. Total Withdrawals -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">Outflow</div>
+                    <div class="metric-title">Total Withdrawals</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-amber">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V2"/><path d="m7 7 5-5 5 5"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value tnum" id="metricTotalWithdrawals">৳ 0</div>
+                <div class="metric-sub">Processed payouts</div>
+              </div>
+            </div>
+
+            <!-- 5. Available Balance -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-green">Net Liquidity</div>
+                    <div class="metric-title">Available Balance</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-green">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value metric-value-green tnum" id="metricAvailableBalance">৳ 0</div>
+                <div class="metric-sub">Deposits minus withdrawals</div>
+              </div>
+            </div>
+
+            <!-- 6. Total Active Loans -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">0% Interest</div>
+                    <div class="metric-title">Active Loans</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-navy">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value tnum" id="metricActiveLoans">0</div>
+                <div class="metric-sub">Ongoing loan portfolios</div>
+              </div>
+            </div>
+
+            <!-- 7. Total Loan Amount -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">Disbursements</div>
+                    <div class="metric-title">Total Disbursed</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-navy">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value tnum" id="metricTotalLoanAmount">৳ 0</div>
+                <div class="metric-sub">Cumulative loans granted</div>
+              </div>
+            </div>
+
+            <!-- 8. Outstanding Loan Amount -->
+            <div class="bezel-card">
+              <div class="bezel-inner metric-card-inner">
+                <div class="metric-top">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">Receivable</div>
+                    <div class="metric-title">Outstanding Loans</div>
+                  </div>
+                  <div class="metric-icon-wrap metric-icon-amber">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                </div>
+                <div class="metric-value tnum" id="metricOutstandingLoans">৳ 0</div>
+                <div class="metric-sub">Remaining balance to collect</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Charts Row: Monthly Cash Flow & Loan Overview -->
+          <div class="dashboard-split-grid">
+            
+            <div class="bezel-card">
+              <div class="bezel-inner">
+                <div class="chart-header">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">Cash Movement</div>
+                    <h3 class="chart-title">Monthly Deposits vs Withdrawals</h3>
+                  </div>
+                  <span class="helper-text">Last 6 Months (BDT ৳)</span>
+                </div>
+                <div class="chart-canvas-container">
+                  <canvas id="cashFlowChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="bezel-card">
+              <div class="bezel-inner">
+                <div class="chart-header">
+                  <div>
+                    <div class="eyebrow eyebrow-green">Loan Portfolio</div>
+                    <h3 class="chart-title">Disbursement & Recovery</h3>
+                  </div>
+                  <span class="helper-text">0% Interest Ratio</span>
+                </div>
+                <div class="chart-canvas-container">
+                  <canvas id="loanOverviewChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Bento Split: Recent Transactions & Upcoming Installments -->
+          <div class="dashboard-split-grid">
+            
+            <!-- Recent Transactions Table -->
+            <div class="bezel-card">
+              <div class="bezel-inner">
+                <div class="toolbar-wrapper">
+                  <div>
+                    <div class="eyebrow eyebrow-navy">Audit Stream</div>
+                    <h3 class="chart-title">Recent Transactions</h3>
+                  </div>
+                  <button class="btn-action-sm" onclick="switchView('transactions')">View All Transactions &rarr;</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="corporate-table">
+                    <thead>
+                      <tr>
+                        <th>Txn ID</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Entity</th>
+                        <th>Amount</th>
+                        <th>Ref</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboardRecentTxnsBody">
+                      <tr><td colspan="6" class="text-center">Loading transactions...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upcoming Installments -->
+            <div class="bezel-card">
+              <div class="bezel-inner">
+                <div class="toolbar-wrapper">
+                  <div>
+                    <div class="eyebrow eyebrow-green">Collections</div>
+                    <h3 class="chart-title">Upcoming Installments</h3>
+                  </div>
+                  <button class="btn-action-sm" onclick="switchView('installments')">View All &rarr;</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="corporate-table">
+                    <thead>
+                      <tr>
+                        <th>Due Date</th>
+                        <th>Borrower</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboardUpcomingInstallmentsBody">
+                      <tr><td colspan="5" class="text-center">Loading installments...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ================================================================
+             2. SHAREHOLDER MANAGEMENT VIEW
+             ================================================================ -->
+        <section id="view-shareholders" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-navy">Equity Partners</div>
+                  <h2 class="chart-title">Shareholders Registry</h2>
+                </div>
+                <button class="btn-island btn-island-primary" onclick="openShareholderModal()">
+                  <span>+ Add Shareholder</span>
+                  <div class="btn-icon-circle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Search & Filter Controls -->
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="shareholderSearch" placeholder="Search by name, phone, NID, or ID..." onkeyup="filterShareholders()">
+                </div>
+                <div class="filter-group">
+                  <select class="select-custom" id="shareholderStatusFilter" onchange="filterShareholders()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                  <select class="select-custom" id="shareholderSort" onchange="filterShareholders()">
+                    <option value="ID_ASC">Sort: ID (Asc)</option>
+                    <option value="NAME_ASC">Sort: Name (A-Z)</option>
+                    <option value="SHARES_DESC">Sort: Shares (High to Low)</option>
+                    <option value="BALANCE_DESC">Sort: Available Balance</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Shareholders Table -->
+              <div class="table-responsive">
+                <table class="corporate-table" id="shareholdersTable">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Shareholder Name</th>
+                      <th>Phone & Email</th>
+                      <th>NID Number</th>
+                      <th>Joining Date</th>
+                      <th>Shares</th>
+                      <th>Total Value (৳1,000/sh)</th>
+                      <th>Available Balance</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shareholdersTableBody">
+                    <tr><td colspan="10" class="text-center">Loading shareholders registry...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             3. DEPOSIT MANAGEMENT VIEW
+             ================================================================ -->
+        <section id="view-deposits" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-green">Capital Additions</div>
+                  <h2 class="chart-title">Deposit Management</h2>
+                </div>
+                <button class="btn-island btn-island-green" onclick="openDepositModal()">
+                  <span>+ Record Deposit</span>
+                  <div class="btn-icon-circle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                </button>
+              </div>
+
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="depositSearch" placeholder="Search by shareholder or reference..." onkeyup="filterDeposits()">
+                </div>
+                <div class="filter-group">
+                  <input type="date" class="select-custom" id="depositDateFrom" onchange="filterDeposits()" title="Date From">
+                  <input type="date" class="select-custom" id="depositDateTo" onchange="filterDeposits()" title="Date To">
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="corporate-table">
+                  <thead>
+                    <tr>
+                      <th>Deposit ID</th>
+                      <th>Shareholder</th>
+                      <th>Amount (৳)</th>
+                      <th>Deposit Date</th>
+                      <th>Reference No</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody id="depositsTableBody">
+                    <tr><td colspan="6" class="text-center">Loading deposit records...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             4. WITHDRAWAL MANAGEMENT VIEW
+             ================================================================ -->
+        <section id="view-withdrawals" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-navy">Capital Repayments</div>
+                  <h2 class="chart-title">Withdrawal Management</h2>
+                </div>
+                <button class="btn-island btn-island-primary" onclick="openWithdrawalModal()">
+                  <span>- Process Withdrawal</span>
+                  <div class="btn-icon-circle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                </button>
+              </div>
+
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="withdrawalSearch" placeholder="Search shareholder or reference..." onkeyup="filterWithdrawals()">
+                </div>
+                <div class="filter-group">
+                  <input type="date" class="select-custom" id="withdrawalDateFrom" onchange="filterWithdrawals()" title="Date From">
+                  <input type="date" class="select-custom" id="withdrawalDateTo" onchange="filterWithdrawals()" title="Date To">
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="corporate-table">
+                  <thead>
+                    <tr>
+                      <th>Withdrawal ID</th>
+                      <th>Shareholder</th>
+                      <th>Amount (৳)</th>
+                      <th>Withdrawal Date</th>
+                      <th>Reference No</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody id="withdrawalsTableBody">
+                    <tr><td colspan="6" class="text-center">Loading withdrawal records...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             5. BORROWER MANAGEMENT VIEW
+             ================================================================ -->
+        <section id="view-borrowers" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-navy">Credit Clients</div>
+                  <h2 class="chart-title">Borrower Profiles</h2>
+                </div>
+                <button class="btn-island btn-island-primary" onclick="openBorrowerModal()">
+                  <span>+ Register Borrower</span>
+                  <div class="btn-icon-circle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                </button>
+              </div>
+
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="borrowerSearch" placeholder="Search borrower name, phone, or ID..." onkeyup="filterBorrowers()">
+                </div>
+                <div class="filter-group">
+                  <select class="select-custom" id="borrowerTypeFilter" onchange="filterBorrowers()">
+                    <option value="ALL">All Borrower Types</option>
+                    <option value="Shareholder">Shareholder</option>
+                    <option value="Outside Individual">Outside Individual</option>
+                    <option value="Company / Business">Company / Business</option>
+                  </select>
+                  <select class="select-custom" id="borrowerStatusFilter" onchange="filterBorrowers()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="corporate-table">
+                  <thead>
+                    <tr>
+                      <th>Borrower ID</th>
+                      <th>Type</th>
+                      <th>Full Name / Company</th>
+                      <th>Phone & Email</th>
+                      <th>NID / Reg No</th>
+                      <th>Contact Person</th>
+                      <th>Reg Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="borrowersTableBody">
+                    <tr><td colspan="9" class="text-center">Loading borrowers...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             6. LOAN MANAGEMENT VIEW (0% Interest)
+             ================================================================ -->
+        <section id="view-loans" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-green">0% Interest Financing</div>
+                  <h2 class="chart-title">Loans Portfolio</h2>
+                </div>
+                <button class="btn-island btn-island-green" onclick="openLoanModal()">
+                  <span>+ Issue New Loan</span>
+                  <div class="btn-icon-circle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                </button>
+              </div>
+
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="loanSearch" placeholder="Search loan ID or borrower..." onkeyup="filterLoans()">
+                </div>
+                <div class="filter-group">
+                  <select class="select-custom" id="loanStatusFilter" onchange="filterLoans()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Defaulted">Defaulted</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="corporate-table">
+                  <thead>
+                    <tr>
+                      <th>Loan ID</th>
+                      <th>Borrower</th>
+                      <th>Type</th>
+                      <th>Loan Amount (৳)</th>
+                      <th>Duration</th>
+                      <th>Monthly Installment</th>
+                      <th>Total Paid</th>
+                      <th>Remaining (৳)</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loansTableBody">
+                    <tr><td colspan="10" class="text-center">Loading loans...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             7. INSTALLMENT MANAGEMENT VIEW
+             ================================================================ -->
+        <section id="view-installments" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-navy">Repayment Schedules</div>
+                  <h2 class="chart-title">Installment Tracker</h2>
+                </div>
+              </div>
+
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="installmentSearch" placeholder="Search borrower or loan ID..." onkeyup="filterInstallments()">
+                </div>
+                <div class="filter-group">
+                  <select class="select-custom" id="installmentStatusFilter" onchange="filterInstallments()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Partially Paid">Partially Paid</option>
+                    <option value="Paid">Paid</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="corporate-table">
+                  <thead>
+                    <tr>
+                      <th>Installment ID</th>
+                      <th>Loan ID</th>
+                      <th>Borrower Name</th>
+                      <th>Installment #</th>
+                      <th>Due Date</th>
+                      <th>Due Amount (৳)</th>
+                      <th>Paid (৳)</th>
+                      <th>Balance Due (৳)</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="installmentsTableBody">
+                    <tr><td colspan="10" class="text-center">Loading installment schedules...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             8. TRANSACTIONS LEDGER VIEW
+             ================================================================ -->
+        <section id="view-transactions" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-navy">General Ledger</div>
+                  <h2 class="chart-title">Central Transactions</h2>
+                </div>
+              </div>
+
+              <div class="toolbar-wrapper">
+                <div class="search-input-box">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="txnSearch" placeholder="Search txn ID, entity, reference..." onkeyup="filterTransactions()">
+                </div>
+                <div class="filter-group">
+                  <select class="select-custom" id="txnTypeFilter" onchange="filterTransactions()">
+                    <option value="ALL">All Transaction Types</option>
+                    <option value="DEPOSIT">Deposits</option>
+                    <option value="WITHDRAWAL">Withdrawals</option>
+                    <option value="LOAN_DISBURSEMENT">Loan Disbursements</option>
+                    <option value="LOAN_REPAYMENT">Loan Repayments</option>
+                  </select>
+                  <select class="select-custom" id="txnDirectionFilter" onchange="filterTransactions()">
+                    <option value="ALL">All Flows</option>
+                    <option value="IN">Inflow (IN)</option>
+                    <option value="OUT">Outflow (OUT)</option>
+                  </select>
+                  <input type="date" class="select-custom" id="txnDateFrom" onchange="filterTransactions()" title="From Date">
+                  <input type="date" class="select-custom" id="txnDateTo" onchange="filterTransactions()" title="To Date">
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="corporate-table">
+                  <thead>
+                    <tr>
+                      <th>Txn ID</th>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Category</th>
+                      <th>Entity</th>
+                      <th>Flow</th>
+                      <th>Amount (৳)</th>
+                      <th>Reference</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody id="transactionsTableBody">
+                    <tr><td colspan="9" class="text-center">Loading transactions ledger...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             9. REPORTS VIEW
+             ================================================================ -->
+        <section id="view-reports" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-green">Financial Statements</div>
+                  <h2 class="chart-title">Executive Reports & Audits</h2>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                  <button class="btn-island btn-island-secondary" onclick="exportReportToCSV()">
+                    <span>Export CSV</span>
+                    <div class="btn-icon-circle">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </div>
+                  </button>
+                  <button class="btn-island btn-island-primary" onclick="printReport()">
+                    <span>Print Report</span>
+                    <div class="btn-icon-circle">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Report Type Selection and Date Range Controls -->
+              <div class="toolbar-wrapper" style="background:#F8FAFD; padding:1rem; border-radius:1rem; border:1px solid var(--border-color);">
+                <div class="form-group" style="min-width:240px;">
+                  <label>Select Report Type</label>
+                  <select class="form-control" id="reportTypeSelect" onchange="generateReport()">
+                    <option value="financial_summary">Monthly Financial Summary</option>
+                    <option value="shareholders">Shareholder Equity & Shares Report</option>
+                    <option value="deposits">Deposit Transactions Report</option>
+                    <option value="withdrawals">Withdrawal Operations Report</option>
+                    <option value="loans">Loan Portfolio & Repayment Status</option>
+                    <option value="borrowers">Borrower Exposure Report</option>
+                    <option value="installments">Installment Collection Performance</option>
+                    <option value="outstanding">Outstanding Loans Aging</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>From Date</label>
+                  <input type="date" class="form-control" id="reportDateFrom" onchange="generateReport()">
+                </div>
+                <div class="form-group">
+                  <label>To Date</label>
+                  <input type="date" class="form-control" id="reportDateTo" onchange="generateReport()">
+                </div>
+                <div style="display:flex; align-items:flex-end;">
+                  <button class="btn-action-sm btn-success" style="padding:0.65rem 1.25rem;" onclick="generateReport()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    <span>Generate & Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Report Dynamic Container -->
+              <div id="reportOutputContainer" style="margin-top: 1.5rem;">
+                <div class="spinner-box">
+                  <div class="spinner"></div>
+                  <p>Select report criteria and click Generate...</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================
+             10. SETTINGS VIEW
+             ================================================================ -->
+        <section id="view-settings" class="content-section" style="display:none;">
+          <div class="bezel-card">
+            <div class="bezel-inner">
+              <div class="toolbar-wrapper">
+                <div>
+                  <div class="eyebrow eyebrow-navy">System Architecture</div>
+                  <h2 class="chart-title">Settings & Database Management</h2>
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-bottom: 2rem;">
+                
+                <!-- Organization Profile -->
+                <div class="bezel-card">
+                  <div class="bezel-inner">
+                    <h3 style="font-size:1rem; color:var(--navy-primary); font-weight:800; margin-bottom:1rem;">Organization Profile</h3>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Organization Name</label>
+                      <input type="text" class="form-control" id="settingOrgName" value="Nirman Finance LTD">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Official Phone</label>
+                      <input type="text" class="form-control" id="settingOrgPhone" value="+880 1712-345678">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Official Email</label>
+                      <input type="email" class="form-control" id="settingOrgEmail" value="info@nirmanfinance.com">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Registered Office Address</label>
+                      <input type="text" class="form-control" id="settingOrgAddress" value="Level 7, Corporate Tower, Gulshan-2, Dhaka 1212">
+                    </div>
+                    <button class="btn-island btn-island-primary" style="margin-top:0.75rem;" onclick="saveSystemSettings()">
+                      <span>Save Company Profile</span>
+                      <div class="btn-icon-circle">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Financial System Rules & Policy -->
+                <div class="bezel-card">
+                  <div class="bezel-inner">
+                    <h3 style="font-size:1rem; color:var(--navy-primary); font-weight:800; margin-bottom:1rem;">Financial Rules & Database Setup</h3>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Currency Symbol</label>
+                      <input type="text" class="form-control" id="settingCurrency" value="৳" readonly>
+                      <span class="helper-text">Official Bangladeshi Taka (BDT ৳)</span>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Share Unit Price (BDT)</label>
+                      <input type="text" class="form-control" id="settingSharePrice" value="1000" readonly>
+                      <span class="helper-text">Fixed rule: 1 Share = ৳ 1,000</span>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Loan Interest Rate</label>
+                      <input type="text" class="form-control" id="settingInterestRate" value="0%" readonly>
+                      <span class="helper-text">Fixed policy: All loans are 100% interest-free</span>
+                    </div>
+
+                    <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border-color); display:flex; flex-direction:column; gap:0.75rem;">
+                      <label style="font-size:0.75rem; font-weight:700; color:var(--navy-primary); text-transform:uppercase;">Database Actions</label>
+                      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <button class="btn-action-sm btn-success" style="padding:0.6rem 1rem;" onclick="runInitializeDatabase()">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                          <span>Initialize Google Sheets DB</span>
+                        </button>
+                        <button class="btn-action-sm" style="padding:0.6rem 1rem;" onclick="runSeedDemoData()">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                          <span>Seed Demo Records</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cloud Hosting & Live API Configuration (Vercel / GAS) -->
+                <div class="bezel-card" style="grid-column: 1 / -1;">
+                  <div class="bezel-inner">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+                      <div>
+                        <h3 style="font-size:1rem; color:var(--navy-primary); font-weight:800; margin-bottom:0.25rem;">Cloud Hosting & Live Google Sheets Integration</h3>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin:0;">Configure Google Apps Script Web App URL when hosting frontend on Vercel or custom domain.</p>
+                      </div>
+                      <span id="cloudConnectionBadge" class="badge-status badge-warning">Standalone / Offline Mock Database</span>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Google Apps Script Web App URL (REST Endpoint)</label>
+                      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <input type="url" class="form-control" id="settingGasApiUrl" style="flex:1; min-width:280px;" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+                        <button class="btn-island btn-island-primary" onclick="saveGasApiUrl()" style="padding:0.6rem 1.25rem;">
+                          <span>Save API URL</span>
+                        </button>
+                        <button class="btn-action-sm" onclick="testGasApiUrl()" style="padding:0.6rem 1rem;">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                          <span>Test Ping</span>
+                        </button>
+                      </div>
+                      <span class="helper-text" style="margin-top:0.5rem;">
+                        <strong>Deployment instructions:</strong> In Google Apps Script, click <em>Deploy &gt; New deployment &gt; Select type: Web app</em> &rarr; Set <em>Execute as: Me</em> &rarr; Set <em>Who has access: Anyone</em> &rarr; Copy the Web App URL and paste it here.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ======================================================================
+       MODALS
+       ====================================================================== -->
+
+  <!-- 1. ADD / EDIT SHAREHOLDER MODAL -->
+  <div class="modal-overlay" id="shareholderModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="shareholderModalTitle">Add New Shareholder</h3>
+        <button class="modal-close-btn" onclick="closeModal('shareholderModal')">&times;</button>
+      </div>
+      <form id="shareholderForm" onsubmit="handleShareholderSubmit(event)">
+        <input type="hidden" id="shFormId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group form-full">
+              <label>Full Name *</label>
+              <input type="text" class="form-control" id="shFormName" required placeholder="e.g. Mohammad Rafiqul Islam">
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" class="form-control" id="shFormPhone" placeholder="+880 1711-XXXXXX (Optional)">
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" class="form-control" id="shFormEmail" placeholder="email@domain.com (Optional)">
+            </div>
+            <div class="form-group">
+              <label>NID Number</label>
+              <input type="text" class="form-control" id="shFormNID" placeholder="National ID / Smart Card (Optional)">
+            </div>
+            <div class="form-group">
+              <label>Joining Date</label>
+              <input type="date" class="form-control" id="shFormJoinDate">
+            </div>
+            <div class="form-group" id="shFormSharesGroup">
+              <label>Initial Shares (৳1,000/share)</label>
+              <input type="number" class="form-control" id="shFormShares" min="0" value="0" placeholder="0" oninput="calculateShareValuePreview()">
+              <span class="helper-text" id="shShareValuePreview">Capital Value: ৳ 0 (0 shares)</span>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select class="form-control" id="shFormStatus">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="form-group form-full">
+              <label>Address</label>
+              <input type="text" class="form-control" id="shFormAddress" placeholder="Street, area, city">
+            </div>
+            <div class="form-group form-full">
+              <label>Notes</label>
+              <textarea class="form-control" id="shFormNotes" rows="2" placeholder="Optional notes..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('shareholderModal')">Cancel</button>
+          <button type="submit" class="btn-island btn-island-primary">
+            <span id="shSubmitBtnText">Save Shareholder</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. SHAREHOLDER DETAILS MODAL -->
+  <div class="modal-overlay" id="shareholderDetailsModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="shDetailsName">Shareholder Account Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('shareholderDetailsModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="shDetailsBody">
+        <div class="spinner-box"><div class="spinner"></div><p>Loading profile...</p></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('shareholderDetailsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. RECORD DEPOSIT MODAL -->
+  <div class="modal-overlay" id="depositModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Record Shareholder Deposit</h3>
+        <button class="modal-close-btn" onclick="closeModal('depositModal')">&times;</button>
+      </div>
+      <form id="depositForm" onsubmit="handleDepositSubmit(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group form-full">
+              <label>Select Shareholder *</label>
+              <select class="form-control" id="depShareholderSelect" required onchange="updateDepShareholderInfo()">
+                <option value="">-- Choose Shareholder --</option>
+              </select>
+              <span class="helper-text" id="depShareholderInfo">Current shares: - | Balance: -</span>
+            </div>
+            <div class="form-group">
+              <label>Deposit Amount (৳) *</label>
+              <input type="number" class="form-control" id="depAmount" min="100" step="1" required placeholder="e.g. 50000" oninput="previewDepositShares()">
+              <span class="helper-text" id="depSharesPreview">Adds: 0 shares</span>
+            </div>
+            <div class="form-group">
+              <label>Deposit Date *</label>
+              <input type="date" class="form-control" id="depDate" required>
+            </div>
+            <div class="form-group form-full">
+              <label>Reference / Cheque / Txn No</label>
+              <input type="text" class="form-control" id="depRef" placeholder="e.g. CHQ-998822 or BKASH-Trx">
+            </div>
+            <div class="form-group form-full">
+              <label>Notes</label>
+              <textarea class="form-control" id="depNotes" rows="2" placeholder="Monthly capital subscription, etc."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('depositModal')">Cancel</button>
+          <button type="submit" class="btn-island btn-island-green">Confirm Deposit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. PROCESS WITHDRAWAL MODAL -->
+  <div class="modal-overlay" id="withdrawalModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Process Shareholder Withdrawal</h3>
+        <button class="modal-close-btn" onclick="closeModal('withdrawalModal')">&times;</button>
+      </div>
+      <form id="withdrawalForm" onsubmit="handleWithdrawalSubmit(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group form-full">
+              <label>Select Shareholder *</label>
+              <select class="form-control" id="wthShareholderSelect" required onchange="updateWthShareholderInfo()">
+                <option value="">-- Choose Shareholder --</option>
+              </select>
+              <span class="helper-text" id="wthAvailableBalanceInfo" style="color:var(--navy-primary); font-weight:700;">
+                Available for withdrawal: ৳ 0
+              </span>
+            </div>
+            <div class="form-group">
+              <label>Withdrawal Amount (৳) *</label>
+              <input type="number" class="form-control" id="wthAmount" min="1000" required placeholder="e.g. 20000">
+              <span class="helper-text" style="color:var(--danger-red);">Cannot exceed available balance</span>
+            </div>
+            <div class="form-group">
+              <label>Withdrawal Date *</label>
+              <input type="date" class="form-control" id="wthDate" required>
+            </div>
+            <div class="form-group form-full">
+              <label>Reference No / Bank Advice</label>
+              <input type="text" class="form-control" id="wthRef" placeholder="e.g. BANK-EFT-112233">
+            </div>
+            <div class="form-group form-full">
+              <label>Notes / Reason</label>
+              <textarea class="form-control" id="wthNotes" rows="2" placeholder="Capital reduction request..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('withdrawalModal')">Cancel</button>
+          <button type="submit" class="btn-island btn-island-primary">Approve & Disburse</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. REGISTER / EDIT BORROWER MODAL -->
+  <div class="modal-overlay" id="borrowerModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="borrowerModalTitle">Register New Borrower</h3>
+        <button class="modal-close-btn" onclick="closeModal('borrowerModal')">&times;</button>
+      </div>
+      <form id="borrowerForm" onsubmit="handleBorrowerSubmit(event)">
+        <input type="hidden" id="brFormId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group form-full">
+              <label>Borrower Type *</label>
+              <select class="form-control" id="brFormType" required onchange="toggleBorrowerTypeFields()">
+                <option value="Shareholder">Shareholder</option>
+                <option value="Outside Individual" selected>Outside Individual</option>
+                <option value="Company / Business">Company / Business</option>
+              </select>
+            </div>
+            <div class="form-group form-full" id="brShareholderSelectGroup" style="display:none; background:var(--blue-light); padding:0.875rem; border-radius:0.75rem; border:1px solid rgba(23, 72, 121, 0.15);">
+              <label style="color:var(--navy-primary);">Link Registered Shareholder (Auto-fill)</label>
+              <select class="form-control" id="brShareholderSelect" onchange="autoFillBorrowerFromShareholder()">
+                <option value="">-- Choose Shareholder to Auto-fill --</option>
+              </select>
+            </div>
+            <div class="form-group form-full">
+              <label id="brNameLabel">Full Name *</label>
+              <input type="text" class="form-control" id="brFormName" required placeholder="Full name or company legal name">
+            </div>
+            <div class="form-group" id="brContactPersonGroup" style="display:none;">
+              <label>Contact Person (for Company)</label>
+              <input type="text" class="form-control" id="brFormContactPerson" placeholder="Name and designation">
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" class="form-control" id="brFormPhone" placeholder="+880 1XXXXXXXXX (Optional)">
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" class="form-control" id="brFormEmail" placeholder="borrower@example.com (Optional)">
+            </div>
+            <div class="form-group">
+              <label id="brNidLabel">NID Number / Reg No</label>
+              <input type="text" class="form-control" id="brFormNID" placeholder="NID or Trade License (Optional)">
+            </div>
+            <div class="form-group">
+              <label>Registration Date</label>
+              <input type="date" class="form-control" id="brFormDate">
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select class="form-control" id="brFormStatus">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="form-group form-full">
+              <label>Address</label>
+              <input type="text" class="form-control" id="brFormAddress" placeholder="Physical or registered business address">
+            </div>
+            <div class="form-group form-full">
+              <label>Notes</label>
+              <textarea class="form-control" id="brFormNotes" rows="2" placeholder="Credit evaluation or guarantor notes..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('borrowerModal')">Cancel</button>
+          <button type="submit" class="btn-island btn-island-primary">Save Borrower</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. ISSUE LOAN MODAL -->
+  <div class="modal-overlay" id="loanModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Issue New Loan (0% Interest)</h3>
+        <button class="modal-close-btn" onclick="closeModal('loanModal')">&times;</button>
+      </div>
+      <form id="loanForm" onsubmit="handleLoanSubmit(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group form-full">
+              <label>Select Borrower *</label>
+              <select class="form-control" id="loanBorrowerSelect" required>
+                <option value="">-- Choose Borrower --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Loan Amount (৳) *</label>
+              <input type="number" class="form-control" id="loanAmount" min="5000" step="1000" required placeholder="e.g. 100000" oninput="calculateLoanInstallmentPreview()">
+            </div>
+            <div class="form-group">
+              <label>Duration (Months) *</label>
+              <input type="number" class="form-control" id="loanDuration" min="1" max="120" value="12" required oninput="calculateLoanInstallmentPreview()">
+            </div>
+            <div class="form-group">
+              <label>Loan Disbursement Date *</label>
+              <input type="date" class="form-control" id="loanDate" required onchange="calculateLoanInstallmentPreview()">
+            </div>
+            <div class="form-group">
+              <label>First Installment Date *</label>
+              <input type="date" class="form-control" id="loanFirstInstDate" required>
+            </div>
+
+            <!-- Installment Preview Box -->
+            <div class="form-group form-full" style="background:var(--blue-light); padding:1rem; border-radius:0.75rem; border:1px solid rgba(23, 72, 121, 0.15);">
+              <div class="eyebrow eyebrow-green">0% Interest Installment Breakdown</div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.25rem;">
+                <span style="font-size:0.85rem; font-weight:700; color:var(--navy-primary);">Monthly Installment:</span>
+                <span style="font-size:1.15rem; font-weight:800; color:var(--green-primary);" id="loanMonthlyPreview">৳ 0</span>
+              </div>
+              <span class="helper-text" id="loanFinalInstallmentNote">Final month automatically adjusts any fractional rounding difference.</span>
+            </div>
+
+            <div class="form-group form-full">
+              <label>Purpose & Notes</label>
+              <textarea class="form-control" id="loanNotes" rows="2" placeholder="Business equipment purchase, commercial expansion..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('loanModal')">Cancel</button>
+          <button type="submit" class="btn-island btn-island-green">Disburse Loan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. LOAN DETAILS & REPAYMENT SCHEDULE MODAL -->
+  <div class="modal-overlay" id="loanDetailsModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="loanDetailsTitle">Loan Details & Schedule</h3>
+        <button class="modal-close-btn" onclick="closeModal('loanDetailsModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="loanDetailsBody">
+        <div class="spinner-box"><div class="spinner"></div><p>Loading loan schedule...</p></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('loanDetailsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. RECORD INSTALLMENT PAYMENT MODAL -->
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Record Installment Payment</h3>
+        <button class="modal-close-btn" onclick="closeModal('paymentModal')">&times;</button>
+      </div>
+      <form id="paymentForm" onsubmit="handlePaymentSubmit(event)">
+        <input type="hidden" id="payFormInstId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group form-full" style="background:#F8FAFD; padding:1rem; border-radius:0.75rem; border:1px solid var(--border-color);">
+              <div style="font-size:0.8rem; color:var(--text-muted); font-weight:600;" id="payBorrowerLine">Borrower: -</div>
+              <div style="font-size:0.95rem; font-weight:800; color:var(--navy-primary); margin-top:0.25rem;" id="payInstallmentLine">Installment Due: ৳ 0</div>
+            </div>
+            <div class="form-group">
+              <label>Amount Paid (৳) *</label>
+              <input type="number" class="form-control" id="payAmount" min="1" required>
+              <span class="helper-text">Supports full or partial payment</span>
+            </div>
+            <div class="form-group">
+              <label>Payment Date *</label>
+              <input type="date" class="form-control" id="payDate" required>
+            </div>
+            <div class="form-group form-full">
+              <label>Payment Reference / Cheque No *</label>
+              <input type="text" class="form-control" id="payRef" required placeholder="e.g. CHQ-556677 or CASH-REC">
+            </div>
+            <div class="form-group form-full">
+              <label>Notes</label>
+              <textarea class="form-control" id="payNotes" rows="2" placeholder="Payment received via bank deposit..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('paymentModal')">Cancel</button>
+          <button type="submit" class="btn-island btn-island-green">Record & Issue Receipt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 9. QUICK ACTION MODAL -->
+  <div class="modal-overlay" id="quickActionModal">
+    <div class="modal-dialog" style="max-width:440px;">
+      <div class="modal-header">
+        <h3>Quick Financial Action</h3>
+        <button class="modal-close-btn" onclick="closeModal('quickActionModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <button class="btn-island btn-island-primary" onclick="closeModal('quickActionModal'); openDepositModal();">
+          <span>+ Record Shareholder Deposit</span>
+          <div class="btn-icon-circle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+        </button>
+        <button class="btn-island btn-island-secondary" onclick="closeModal('quickActionModal'); openWithdrawalModal();">
+          <span>- Process Shareholder Withdrawal</span>
+          <div class="btn-icon-circle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+        </button>
+        <button class="btn-island btn-island-green" onclick="closeModal('quickActionModal'); openLoanModal();">
+          <span>+ Issue New Loan (0% Interest)</span>
+          <div class="btn-icon-circle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+        </button>
+        <button class="btn-island btn-island-secondary" onclick="closeModal('quickActionModal'); openShareholderModal();">
+          <span>+ Add New Shareholder</span>
+          <div class="btn-icon-circle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          </div>
+        </button>
+        <button class="btn-island btn-island-secondary" onclick="closeModal('quickActionModal'); openBorrowerModal();">
+          <span>+ Register New Borrower</span>
+          <div class="btn-icon-circle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- External Canvas Chart Script (Zero-dependency Chart.js for smooth graphs) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Google Apps Script Scripts Inclusion -->
+  <?!= include('Scripts'); ?>
+</body>
+</html>

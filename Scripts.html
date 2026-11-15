@@ -1,0 +1,2477 @@
+<script>
+  /**
+   * ============================================================================
+   * NIRMAN FINANCE LTD — FRONTEND ENGINE
+   * ============================================================================
+   * Reactive state management, Google Apps Script bridge, Chart.js integrations,
+   * financial calculations (0% interest loans, ৳1,000 shares), modal choreographers.
+   * ============================================================================
+   */
+
+  // Application State Store
+  const state = {
+    activeView: 'dashboard',
+    isGAS: (typeof google !== 'undefined' && google.script && google.script.run),
+    data: {
+      shareholders: [],
+      deposits: [],
+      withdrawals: [],
+      borrowers: [],
+      loans: [],
+      installments: [],
+      transactions: [],
+      settings: {
+        ORG_NAME: 'Nirman Finance LTD',
+        ORG_PHONE: '+880 1712-345678',
+        ORG_EMAIL: 'info@nirmanfinance.com',
+        ORG_ADDRESS: 'Level 7, Corporate Tower, Gulshan-2, Dhaka 1212',
+        CURRENCY_SYMBOL: '৳',
+        SHARE_PRICE: '1000',
+        LOAN_INTEREST_RATE: '0%'
+      }
+    },
+    charts: {
+      cashFlow: null,
+      loanOverview: null
+    }
+  };
+
+  // Helper: Format Local Date String (YYYY-MM-DD) avoiding UTC shifts
+  function getLocalDateString(dateObj = new Date()) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Initialize Application on DOM Ready
+  document.addEventListener('DOMContentLoaded', () => {
+    setupDateDisplays();
+    setupLogo();
+    setupModalListeners();
+    initCloudSettings();
+    loadAllApplicationData();
+  });
+
+  /**
+   * Setup Real-time Date Displays
+   */
+  function setupDateDisplays() {
+    const options = { day: 'numeric', month: 'short', year: 'numeric' };
+    const todayStr = new Date().toLocaleDateString('en-GB', options);
+    const el = document.getElementById('liveClockDate');
+    if (el) el.textContent = todayStr;
+
+    const todayIso = getLocalDateString();
+    ['shFormJoinDate', 'depDate', 'wthDate', 'brFormDate', 'loanDate', 'loanFirstInstDate', 'payDate'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input && !input.value) input.value = todayIso;
+    });
+  }
+
+  /**
+   * Setup Modal Event Listeners (Outside click & Escape key)
+   */
+  function setupModalListeners() {
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(overlay => {
+          overlay.classList.remove('active');
+        });
+        toggleSidebar(false);
+      }
+    });
+  }
+
+  /**
+   * Setup Logo from local or embedded base64
+   */
+  const LOGO_DATA_URI = 'data:image/jpeg;base64,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zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzywPjzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzwuIMNBT7zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzvj4CqIGKsMNZhl9GHzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzt10Eqqqry8sSd3yzDzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzrWgRxzzzzzx1FMP2Lzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzyr2avo7DzzzzxA8P2fzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzy5VzEj/vTzzwL4PCQnzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz4BFerx8HXzyh/wC9mQ8888888888888888888888888888888888888888888888888888888888vVpRLkZeK8S95zqWq8888888888888888888888888888888888888888888888888888888888oAN/Z0rDvK9TFso/i88888888888888888888888888888888888888888888888888888888884WgqTWr7TtD6i81Hu8888888888888888888888888888888888888888888888888888888888229wW/4NaHNn+8kD+88888888888888888888888888888888888888888888888888888888888Uwu/wDE/Af8aNvMAJPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPIWlP7vPPItVvdQQ/PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPAv5XfPPPHr+eQ7PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPMSUF9PPPPEPB+PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPMfcU1PP3oQY/PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPEv8Ae39IECzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzy+raMVj/wA888888888888888888888888888888888888888888888888888888888888888888888P8a8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888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';
+  function setupLogo() {
+    const logoEl = document.getElementById('sidebarLogo');
+    if (logoEl) {
+      logoEl.src = LOGO_DATA_URI;
+      logoEl.onerror = () => {
+        logoEl.src = 'https://ui-avatars.com/api/?name=Nirman+Finance&background=174879&color=fff&rounded=true&bold=true';
+      };
+    }
+  }
+
+  /**
+   * Format Currency in Bangladeshi Taka (৳)
+   */
+  function formatBDT(amount) {
+    const val = Number(amount) || 0;
+    const isNeg = val < 0;
+    const formatted = Math.abs(val).toLocaleString('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+    return (isNeg ? '-৳ ' : '৳ ') + formatted;
+  }
+
+  /**
+   * Format Standard Dates (DD MMM YYYY)
+   */
+  function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    try {
+      let d;
+      if (dateStr instanceof Date) {
+        d = dateStr;
+      } else {
+        const safeStr = String(dateStr).trim().replace(' ', 'T');
+        d = new Date(safeStr);
+      }
+      if (isNaN(d.getTime())) return String(dateStr);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (e) {
+      return String(dateStr);
+    }
+  }
+
+  /**
+   * Global Toast Alert Notifications
+   */
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    const iconSvg = type === 'success'
+      ? '<svg class="toast-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+      : '<svg class="toast-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+
+    toast.innerHTML = `${iconSvg}<span>${message}</span>`;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.add('show');
+    });
+
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 350);
+    }, 4000);
+  }
+
+  /**
+   * ============================================================================
+   * NAVIGATION & VIEW ROUTING
+   * ============================================================================
+   */
+  const VIEW_METADATA = {
+    dashboard: { title: 'Financial Dashboard', subtitle: 'Real-time financial performance and portfolio liquidity overview' },
+    shareholders: { title: 'Shareholders Registry', subtitle: 'Manage registered equity partners, shares (৳1,000/share), and balances' },
+    deposits: { title: 'Deposit Management', subtitle: 'Track shareholder capital inflows, shares expansion, and references' },
+    withdrawals: { title: 'Withdrawal Operations', subtitle: 'Process member withdrawals with automated balance verification' },
+    borrowers: { title: 'Borrower Profiles', subtitle: 'Shareholders, outside individuals, and corporate business accounts' },
+    loans: { title: '0% Interest Loans', subtitle: 'Interest-free financing, repayment schedules, and penny-adjusted installments' },
+    installments: { title: 'Installment Schedules', subtitle: 'Monthly installment collection tracker and overdue monitoring' },
+    transactions: { title: 'Central Ledger', subtitle: 'Audited historical stream of deposits, withdrawals, disbursements, and payments' },
+    reports: { title: 'Executive Reports', subtitle: 'Comprehensive financial statements, portfolio summaries, and CSV/Print exports' },
+    settings: { title: 'Settings & Database', subtitle: 'Organization profile, financial parameters, and Google Sheets database health' }
+  };
+
+  function switchView(viewName) {
+    state.activeView = viewName;
+
+    // Update Nav Active State
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-view') === viewName);
+    });
+
+    // Switch View Content
+    document.querySelectorAll('.content-section').forEach(sec => {
+      sec.style.display = (sec.id === `view-${viewName}`) ? 'block' : 'none';
+    });
+
+    // Update Top Header Information
+    const meta = VIEW_METADATA[viewName] || { title: 'Nirman Finance', subtitle: 'Management Portal' };
+    const titleEl = document.getElementById('currentViewTitle');
+    const subEl = document.getElementById('currentViewSubtitle');
+    if (titleEl) titleEl.textContent = meta.title;
+    if (subEl) subEl.textContent = meta.subtitle;
+
+    // Close mobile sidebar and backdrop if open
+    toggleSidebar(false);
+
+    // If dashboard view, trigger chart resize / re-render
+    if (viewName === 'dashboard') {
+      if (state.lastDashboardData) {
+        renderDashboard(state.lastDashboardData);
+      }
+    } else if (viewName === 'reports') {
+      generateReport();
+    }
+  }
+
+  function toggleSidebar(forceState) {
+    const sidebar = document.getElementById('appSidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (!sidebar) return;
+
+    const isOpen = (typeof forceState === 'boolean') ? forceState : !sidebar.classList.contains('open');
+    sidebar.classList.toggle('open', isOpen);
+    if (backdrop) backdrop.classList.toggle('active', isOpen);
+  }
+
+  /**
+   * ============================================================================
+   * DATA COMMUNICATION LAYER (Google Apps Script + Mock Adapter for Preview)
+   * ============================================================================
+   */
+  function callBackend(functionName, args, callback, errorCallback) {
+    if (state.isGAS && google.script.run[functionName]) {
+      const runner = google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.success === false) {
+            showToast(res.error || res.message || 'Server error occurred', 'error');
+            if (errorCallback) errorCallback(res.error || res.message);
+          } else {
+            if (callback) callback(res ? (res.data !== undefined ? res.data : res) : null);
+          }
+        })
+        .withFailureHandler(err => {
+          showToast(err.message || 'Operation failed', 'error');
+          if (errorCallback) errorCallback(err);
+        });
+
+      if (args !== undefined && args !== null) {
+        runner[functionName](args);
+      } else {
+        runner[functionName]();
+      }
+    } else {
+      const gasApiUrl = localStorage.getItem('NIRMAN_GAS_API_URL') || (window.NIRMAN_CONFIG && window.NIRMAN_CONFIG.GAS_API_URL);
+      if (gasApiUrl && gasApiUrl.trim().startsWith('http')) {
+        fetch(gasApiUrl.trim(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: functionName, data: args })
+        })
+        .then(res => res.json())
+        .then(res => {
+          if (res && res.success === false) {
+            showToast(res.error || res.message || 'Server error occurred', 'error');
+            if (errorCallback) errorCallback(res.error || res.message);
+          } else {
+            if (callback) callback(res ? (res.data !== undefined ? res.data : res) : null);
+          }
+        })
+        .catch(err => {
+          console.warn('GAS Web App API fetch failed, falling back to local adapter:', err);
+          mockBackendDispatcher(functionName, args, callback, errorCallback);
+        });
+      } else {
+        // Standalone / Local Browser Mode Adapter
+        mockBackendDispatcher(functionName, args, callback, errorCallback);
+      }
+    }
+  }
+
+  /**
+   * Load all core datasets
+   */
+  function loadAllApplicationData() {
+    callBackend('getDashboardData', null, dashData => {
+      if (dashData) {
+        renderDashboard(dashData);
+      }
+    });
+
+    callBackend('getShareholders', null, shData => {
+      state.data.shareholders = shData || [];
+      renderShareholdersTable();
+      populateShareholderDropdowns();
+    });
+
+    callBackend('getDeposits', null, depData => {
+      state.data.deposits = depData || [];
+      renderDepositsTable();
+    });
+
+    callBackend('getWithdrawals', null, wthData => {
+      state.data.withdrawals = wthData || [];
+      renderWithdrawalsTable();
+    });
+
+    callBackend('getBorrowers', null, brData => {
+      state.data.borrowers = brData || [];
+      renderBorrowersTable();
+      populateBorrowerDropdowns();
+    });
+
+    callBackend('getLoans', null, lnData => {
+      state.data.loans = lnData || [];
+      renderLoansTable();
+    });
+
+    callBackend('getInstallments', null, instData => {
+      state.data.installments = instData || [];
+      renderInstallmentsTable();
+    });
+
+    callBackend('getTransactions', null, txnData => {
+      state.data.transactions = txnData || [];
+      renderTransactionsTable();
+    });
+
+    callBackend('getSettings', null, settingsData => {
+      if (settingsData) {
+        state.data.settings = { ...state.data.settings, ...settingsData };
+        renderSettings();
+      }
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 1. DASHBOARD CONTROLLER
+   * ============================================================================
+   */
+  function renderDashboard(dash) {
+    state.lastDashboardData = dash;
+    const m = dash.metrics || {};
+
+    document.getElementById('metricTotalShareholders').textContent = (m.totalShareholders || 0).toLocaleString();
+    document.getElementById('metricTotalShares').textContent = (m.totalShares || 0).toLocaleString();
+    document.getElementById('metricShareCapital').textContent = formatBDT((m.totalShares || 0) * 1000);
+    document.getElementById('metricTotalDeposits').textContent = formatBDT(m.totalDeposits || 0);
+    document.getElementById('metricTotalWithdrawals').textContent = formatBDT(m.totalWithdrawals || 0);
+    document.getElementById('metricAvailableBalance').textContent = formatBDT(m.totalAvailableBalance || 0);
+    document.getElementById('metricActiveLoans').textContent = (m.totalActiveLoans || 0).toLocaleString();
+    document.getElementById('metricTotalLoanAmount').textContent = formatBDT(m.totalLoanAmount || 0);
+    document.getElementById('metricOutstandingLoans').textContent = formatBDT(m.totalOutstandingLoanAmount || 0);
+
+    // Render Charts
+    renderCashFlowChart(dash.charts || []);
+    renderLoanOverviewChart(m.totalLoanAmount || 0, m.totalOutstandingLoanAmount || 0);
+
+    // Render Recent Transactions
+    renderDashboardRecentTxns(dash.recentTransactions || []);
+
+    // Render Upcoming Installments
+    renderDashboardUpcomingInstallments(dash.upcomingInstallments || []);
+  }
+
+  function renderCashFlowChart(chartData) {
+    const ctx = document.getElementById('cashFlowChart');
+    if (!ctx) return;
+
+    if (typeof Chart === 'undefined') {
+      setTimeout(() => renderCashFlowChart(chartData), 250);
+      return;
+    }
+
+    if (state.charts.cashFlow) {
+      state.charts.cashFlow.destroy();
+    }
+
+    const labels = chartData.map(d => d.label);
+    const depositVals = chartData.map(d => d.deposits);
+    const withdrawalVals = chartData.map(d => d.withdrawals);
+
+    state.charts.cashFlow = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Deposits (Inflow)',
+            data: depositVals,
+            backgroundColor: '#174879',
+            borderRadius: 6,
+            barPercentage: 0.6
+          },
+          {
+            label: 'Withdrawals (Outflow)',
+            data: withdrawalVals,
+            backgroundColor: '#E28743',
+            borderRadius: 6,
+            barPercentage: 0.6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: 600 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ৳ ${ctx.raw.toLocaleString()}`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              font: { family: "'Plus Jakarta Sans', sans-serif", size: 10 },
+              callback: val => '৳ ' + (val >= 1000 ? (val / 1000) + 'k' : val)
+            },
+            grid: { color: 'rgba(227, 234, 241, 0.7)' }
+          },
+          x: {
+            ticks: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 10, weight: 600 } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  function renderLoanOverviewChart(totalDisbursed, outstanding) {
+    const ctx = document.getElementById('loanOverviewChart');
+    if (!ctx) return;
+
+    if (typeof Chart === 'undefined') {
+      setTimeout(() => renderLoanOverviewChart(totalDisbursed, outstanding), 250);
+      return;
+    }
+
+    if (state.charts.loanOverview) {
+      state.charts.loanOverview.destroy();
+    }
+
+    const recovered = Math.max(0, totalDisbursed - outstanding);
+
+    state.charts.loanOverview = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Recovered Capital', 'Outstanding Balance'],
+        datasets: [{
+          data: [recovered, outstanding],
+          backgroundColor: ['#2BA653', '#174879'],
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: 600 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.label}: ৳ ${ctx.raw.toLocaleString()}`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderDashboardRecentTxns(txns) {
+    const tbody = document.getElementById('dashboardRecentTxnsBody');
+    if (!tbody) return;
+
+    if (!txns || txns.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">No recent transactions recorded</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = txns.slice(0, 6).map(t => {
+      const isIncome = t.Direction === 'IN';
+      const amountColor = isIncome ? 'color:var(--green-primary); font-weight:700;' : 'color:var(--navy-primary); font-weight:700;';
+      const flowSign = isIncome ? '+' : '-';
+
+      return `
+      <tr>
+        <td><strong>${t.Transaction_ID}</strong></td>
+        <td>${formatDate(t.Date)}</td>
+        <td><span class="badge-status ${isIncome ? 'badge-paid' : 'badge-pending'}">${t.Type}</span></td>
+        <td>${t.Entity_Name || '-'}</td>
+        <td class="tnum" style="${amountColor}">${flowSign} ${formatBDT(t.Amount)}</td>
+        <td><small style="color:var(--text-light);">${t.Reference_No || '-'}</small></td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function renderDashboardUpcomingInstallments(installments) {
+    const tbody = document.getElementById('dashboardUpcomingInstallmentsBody');
+    if (!tbody) return;
+
+    if (!installments || installments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding:2rem; color:var(--text-muted);">All installments are up-to-date</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = installments.slice(0, 6).map(ins => {
+      const isOverdue = ins.Status === 'Overdue';
+      const statusClass = isOverdue ? 'badge-overdue' : 'badge-pending';
+
+      return `
+      <tr>
+        <td><strong>${formatDate(ins.Due_Date)}</strong></td>
+        <td>${ins.Borrower_Name || '-'}</td>
+        <td class="tnum" style="font-weight:700; color:var(--navy-primary);">${formatBDT(ins.Balance_Due || ins.Due_Amount)}</td>
+        <td><span class="badge-status ${statusClass}">${ins.Status}</span></td>
+        <td>
+          <button class="btn-action-sm btn-success" onclick="openPaymentModal('${ins.Installment_ID}')">Pay</button>
+        </td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  /**
+   * ============================================================================
+   * 2. SHAREHOLDERS MANAGEMENT
+   * ============================================================================
+   */
+  function renderShareholdersTable(list = null) {
+    const tbody = document.getElementById('shareholdersTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.shareholders;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center" style="padding:2rem; color:var(--text-muted);">No shareholders found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(s => {
+      const shares = Number(s.Number_Of_Shares) || 0;
+      const shareVal = shares * 1000;
+      const balance = Number(s.Available_Balance) || 0;
+      const statusBadge = s.Status === 'Active' ? 'badge-active' : 'badge-inactive';
+
+      return `
+      <tr>
+        <td><strong>${s.Shareholder_ID}</strong></td>
+        <td><strong>${s.Full_Name || '-'}</strong></td>
+        <td>
+          <div>${s.Phone || '<span style="color:var(--text-light); font-style:italic;">No phone</span>'}</div>
+          <small style="color:var(--text-light);">${s.Email || '-'}</small>
+        </td>
+        <td><span style="font-family:monospace; font-size:0.8rem;">${s.NID_Number || '-'}</span></td>
+        <td>${s.Joining_Date ? formatDate(s.Joining_Date) : '-'}</td>
+        <td class="tnum" style="font-weight:700; color:var(--navy-primary);">${shares.toLocaleString()}</td>
+        <td class="tnum" style="font-weight:700; color:var(--green-primary);">${formatBDT(shareVal)}</td>
+        <td class="tnum" style="font-weight:700;">${formatBDT(balance)}</td>
+        <td><span class="badge-status ${statusBadge}">${s.Status}</span></td>
+        <td>
+          <div style="display:flex; gap:0.4rem;">
+            <button class="btn-action-sm" onclick="viewShareholderDetails('${s.Shareholder_ID}')">Statement</button>
+            <button class="btn-action-sm" onclick="editShareholder('${s.Shareholder_ID}')">Edit</button>
+          </div>
+        </td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function filterShareholders() {
+    const q = (document.getElementById('shareholderSearch').value || '').toLowerCase();
+    const statusFilter = document.getElementById('shareholderStatusFilter').value;
+    const sort = document.getElementById('shareholderSort').value;
+
+    let filtered = state.data.shareholders.filter(s => {
+      const matchQ = String(s.Full_Name).toLowerCase().includes(q) ||
+        String(s.Phone).toLowerCase().includes(q) ||
+        String(s.NID_Number).toLowerCase().includes(q) ||
+        String(s.Shareholder_ID).toLowerCase().includes(q);
+      const matchStatus = (statusFilter === 'ALL') || (s.Status === statusFilter);
+      return matchQ && matchStatus;
+    });
+
+    if (sort === 'NAME_ASC') filtered.sort((a, b) => a.Full_Name.localeCompare(b.Full_Name));
+    if (sort === 'SHARES_DESC') filtered.sort((a, b) => (Number(b.Number_Of_Shares) || 0) - (Number(a.Number_Of_Shares) || 0));
+    if (sort === 'BALANCE_DESC') filtered.sort((a, b) => (Number(b.Available_Balance) || 0) - (Number(a.Available_Balance) || 0));
+
+    renderShareholdersTable(filtered);
+  }
+
+  function openShareholderModal(isEdit = false) {
+    document.getElementById('shareholderForm').reset();
+    document.getElementById('shFormId').value = '';
+    document.getElementById('shareholderModalTitle').textContent = isEdit ? 'Edit Shareholder' : 'Add New Shareholder';
+    document.getElementById('shSubmitBtnText').textContent = isEdit ? 'Update Details' : 'Save Shareholder';
+    document.getElementById('shFormSharesGroup').style.display = isEdit ? 'none' : 'flex';
+
+    const todayIso = getLocalDateString();
+    document.getElementById('shFormJoinDate').value = todayIso;
+    document.getElementById('shFormShares').value = '0';
+    calculateShareValuePreview();
+    openModal('shareholderModal');
+  }
+
+  function editShareholder(shId) {
+    const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
+    if (!sh) return;
+
+    openShareholderModal(true);
+    document.getElementById('shFormId').value = sh.Shareholder_ID || '';
+    document.getElementById('shFormName').value = sh.Full_Name || '';
+    document.getElementById('shFormPhone').value = sh.Phone || '';
+    document.getElementById('shFormEmail').value = sh.Email || '';
+    document.getElementById('shFormNID').value = sh.NID_Number || '';
+    document.getElementById('shFormJoinDate').value = sh.Joining_Date || '';
+    document.getElementById('shFormStatus').value = sh.Status || 'Active';
+    document.getElementById('shFormAddress').value = sh.Address || '';
+    document.getElementById('shFormNotes').value = sh.Notes || '';
+  }
+
+  function calculateShareValuePreview() {
+    const shares = Number(document.getElementById('shFormShares').value) || 0;
+    const val = shares * 1000;
+    document.getElementById('shShareValuePreview').textContent = `Capital Value: ৳ ${val.toLocaleString()} (${shares} shares @ ৳1,000/share)`;
+  }
+
+  function handleShareholderSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('shFormId').value;
+    const isEdit = !!id;
+
+    const joinDateVal = document.getElementById('shFormJoinDate').value;
+    const todayIso = getLocalDateString();
+
+    const payload = {
+      Shareholder_ID: id,
+      Full_Name: document.getElementById('shFormName').value.trim(),
+      Phone: document.getElementById('shFormPhone').value.trim(),
+      Email: document.getElementById('shFormEmail').value.trim(),
+      NID_Number: document.getElementById('shFormNID').value.trim(),
+      Joining_Date: joinDateVal || todayIso,
+      Number_Of_Shares: Number(document.getElementById('shFormShares').value) || 0,
+      Status: document.getElementById('shFormStatus').value,
+      Address: document.getElementById('shFormAddress').value.trim(),
+      Notes: document.getElementById('shFormNotes').value.trim()
+    };
+
+    const action = isEdit ? 'updateShareholder' : 'addShareholder';
+    callBackend(action, payload, res => {
+      closeModal('shareholderModal');
+      showToast(isEdit ? 'Shareholder updated successfully!' : 'Shareholder registered successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  function viewShareholderDetails(shId) {
+    const modal = document.getElementById('shareholderDetailsModal');
+    const body = document.getElementById('shDetailsBody');
+    body.innerHTML = '<div class="spinner-box"><div class="spinner"></div><p>Loading shareholder statement...</p></div>';
+    openModal('shareholderDetailsModal');
+
+    callBackend('getShareholderDetails', shId, res => {
+      if (!res || !res.profile) {
+        body.innerHTML = '<p style="color:var(--danger-red);">Could not load shareholder profile.</p>';
+        return;
+      }
+
+      const p = res.profile;
+      document.getElementById('shDetailsName').textContent = `${p.Full_Name} (${p.Shareholder_ID})`;
+
+      const deposits = res.deposits || [];
+      const withdrawals = res.withdrawals || [];
+
+      body.innerHTML = `
+      <div class="metrics-grid-3">
+        <div class="bezel-card">
+          <div class="bezel-inner" style="padding:1rem;">
+            <div class="metric-title">Owned Shares</div>
+            <div class="metric-value tnum" style="font-size:1.4rem;">${(Number(p.Number_Of_Shares) || 0).toLocaleString()}</div>
+            <small style="color:var(--text-light);">৳1,000 / share</small>
+          </div>
+        </div>
+        <div class="bezel-card">
+          <div class="bezel-inner" style="padding:1rem;">
+            <div class="metric-title">Total Deposited</div>
+            <div class="metric-value metric-value-green tnum" style="font-size:1.4rem;">${formatBDT(p.Total_Deposited)}</div>
+            <small style="color:var(--text-light);">Cumulative Inflow</small>
+          </div>
+        </div>
+        <div class="bezel-card">
+          <div class="bezel-inner" style="padding:1rem;">
+            <div class="metric-title">Available Balance</div>
+            <div class="metric-value tnum" style="font-size:1.4rem; color:var(--navy-primary);">${formatBDT(p.Available_Balance)}</div>
+            <small style="color:var(--text-light);">Withdrawn: ${formatBDT(p.Total_Withdrawn)}</small>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <div class="eyebrow eyebrow-navy">KYC & Contact Details</div>
+        <div class="kyc-details-grid">
+          <div><strong>Phone:</strong> ${p.Phone || '<span style="color:var(--text-light); font-style:italic;">Not provided</span>'}</div>
+          <div><strong>Email:</strong> ${p.Email || '<span style="color:var(--text-light); font-style:italic;">Not provided</span>'}</div>
+          <div><strong>NID Number:</strong> ${p.NID_Number || '<span style="color:var(--text-light); font-style:italic;">Not provided</span>'}</div>
+          <div><strong>Joined:</strong> ${p.Joining_Date ? formatDate(p.Joining_Date) : 'N/A'}</div>
+          <div style="grid-column:1/-1;"><strong>Address:</strong> ${p.Address || '<span style="color:var(--text-light); font-style:italic;">Not provided</span>'}</div>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem;">
+        <div class="eyebrow eyebrow-green">Deposits Statement (${deposits.length})</div>
+        <div class="table-responsive" style="max-height:180px; margin-bottom:1.25rem;">
+          <table class="corporate-table">
+            <thead><tr><th>Date</th><th>Amount</th><th>Ref No</th><th>Notes</th></tr></thead>
+            <tbody>
+              ${deposits.length ? deposits.map(d => `<tr><td>${formatDate(d.Deposit_Date)}</td><td class="tnum" style="color:var(--green-primary); font-weight:700;">+ ${formatBDT(d.Amount)}</td><td>${d.Reference_No || '-'}</td><td>${d.Notes || '-'}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center">No deposit history</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="eyebrow eyebrow-navy">Withdrawals Statement (${withdrawals.length})</div>
+        <div class="table-responsive" style="max-height:180px;">
+          <table class="corporate-table">
+            <thead><tr><th>Date</th><th>Amount</th><th>Ref No</th><th>Notes</th></tr></thead>
+            <tbody>
+              ${withdrawals.length ? withdrawals.map(w => `<tr><td>${formatDate(w.Withdrawal_Date)}</td><td class="tnum" style="color:var(--danger-red); font-weight:700;">- ${formatBDT(w.Amount)}</td><td>${w.Reference_No || '-'}</td><td>${w.Notes || '-'}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center">No withdrawal history</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 3. DEPOSIT MANAGEMENT
+   * ============================================================================
+   */
+  function renderDepositsTable(list = null) {
+    const tbody = document.getElementById('depositsTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.deposits;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">No deposits recorded</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(d => `
+    <tr>
+      <td><strong>${d.Deposit_ID}</strong></td>
+      <td><strong>${d.Shareholder_Name}</strong> <small style="color:var(--text-light);">(${d.Shareholder_ID})</small></td>
+      <td class="tnum" style="font-weight:700; color:var(--green-primary);">+ ${formatBDT(d.Amount)}</td>
+      <td>${formatDate(d.Deposit_Date)}</td>
+      <td><span style="font-family:monospace;">${d.Reference_No || '-'}</span></td>
+      <td>${d.Notes || '-'}</td>
+    </tr>
+  `).join('');
+  }
+
+  function filterDeposits() {
+    const q = (document.getElementById('depositSearch').value || '').toLowerCase();
+    const dFrom = document.getElementById('depositDateFrom').value;
+    const dTo = document.getElementById('depositDateTo').value;
+
+    const filtered = state.data.deposits.filter(d => {
+      const matchQ = String(d.Shareholder_Name).toLowerCase().includes(q) ||
+        String(d.Reference_No).toLowerCase().includes(q) ||
+        String(d.Deposit_ID).toLowerCase().includes(q);
+      const matchDate = (!dFrom || d.Deposit_Date >= dFrom) && (!dTo || d.Deposit_Date <= dTo);
+      return matchQ && matchDate;
+    });
+
+    renderDepositsTable(filtered);
+  }
+
+  function openDepositModal() {
+    document.getElementById('depositForm').reset();
+    const todayIso = getLocalDateString();
+    document.getElementById('depDate').value = todayIso;
+    populateShareholderDropdowns();
+    updateDepShareholderInfo();
+    openModal('depositModal');
+  }
+
+  function updateDepShareholderInfo() {
+    const shId = document.getElementById('depShareholderSelect').value;
+    const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
+    const infoEl = document.getElementById('depShareholderInfo');
+    if (sh) {
+      infoEl.textContent = `Current Shares: ${sh.Number_Of_Shares} | Available Balance: ৳ ${(Number(sh.Available_Balance) || 0).toLocaleString()}`;
+    } else {
+      infoEl.textContent = 'Current shares: - | Balance: -';
+    }
+    previewDepositShares();
+  }
+
+  function previewDepositShares() {
+    const amt = Number(document.getElementById('depAmount').value) || 0;
+    const addShares = Math.floor(amt / 1000);
+    document.getElementById('depSharesPreview').textContent = `Adds: +${addShares} shares (@ ৳1,000/share)`;
+  }
+
+  function handleDepositSubmit(e) {
+    e.preventDefault();
+    const shId = document.getElementById('depShareholderSelect').value;
+    if (!shId) {
+      showToast('Please select a shareholder', 'error');
+      return;
+    }
+    const amt = Number(document.getElementById('depAmount').value);
+    if (!amt || amt <= 0) {
+      showToast('Please enter a valid deposit amount', 'error');
+      return;
+    }
+
+    const payload = {
+      Shareholder_ID: shId,
+      Amount: amt,
+      Deposit_Date: document.getElementById('depDate').value || getLocalDateString(),
+      Reference_No: document.getElementById('depRef').value.trim(),
+      Notes: document.getElementById('depNotes').value.trim()
+    };
+
+    callBackend('addDeposit', payload, res => {
+      closeModal('depositModal');
+      showToast(res.message || 'Deposit processed successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 4. WITHDRAWAL MANAGEMENT (Validation: Cannot exceed available balance)
+   * ============================================================================
+   */
+  function renderWithdrawalsTable(list = null) {
+    const tbody = document.getElementById('withdrawalsTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.withdrawals;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">No withdrawals recorded</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(w => `
+    <tr>
+      <td><strong>${w.Withdrawal_ID}</strong></td>
+      <td><strong>${w.Shareholder_Name}</strong> <small style="color:var(--text-light);">(${w.Shareholder_ID})</small></td>
+      <td class="tnum" style="font-weight:700; color:var(--danger-red);">- ${formatBDT(w.Amount)}</td>
+      <td>${formatDate(w.Withdrawal_Date)}</td>
+      <td><span style="font-family:monospace;">${w.Reference_No || '-'}</span></td>
+      <td>${w.Notes || '-'}</td>
+    </tr>
+  `).join('');
+  }
+
+  function filterWithdrawals() {
+    const q = (document.getElementById('withdrawalSearch').value || '').toLowerCase();
+    const dFrom = document.getElementById('withdrawalDateFrom').value;
+    const dTo = document.getElementById('withdrawalDateTo').value;
+
+    const filtered = state.data.withdrawals.filter(w => {
+      const matchQ = String(w.Shareholder_Name).toLowerCase().includes(q) ||
+        String(w.Reference_No).toLowerCase().includes(q) ||
+        String(w.Withdrawal_ID).toLowerCase().includes(q);
+      const matchDate = (!dFrom || w.Withdrawal_Date >= dFrom) && (!dTo || w.Withdrawal_Date <= dTo);
+      return matchQ && matchDate;
+    });
+
+    renderWithdrawalsTable(filtered);
+  }
+
+  function openWithdrawalModal() {
+    document.getElementById('withdrawalForm').reset();
+    const todayIso = getLocalDateString();
+    document.getElementById('wthDate').value = todayIso;
+    populateShareholderDropdowns();
+    updateWthShareholderInfo();
+    openModal('withdrawalModal');
+  }
+
+  function updateWthShareholderInfo() {
+    const shId = document.getElementById('wthShareholderSelect').value;
+    const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
+    const infoEl = document.getElementById('wthAvailableBalanceInfo');
+    const amtInput = document.getElementById('wthAmount');
+
+    if (sh) {
+      const avail = Number(sh.Available_Balance) || 0;
+      infoEl.textContent = `Available for withdrawal: ৳ ${avail.toLocaleString()} (${sh.Number_Of_Shares} shares)`;
+      amtInput.max = avail;
+    } else {
+      infoEl.textContent = 'Available for withdrawal: ৳ 0';
+    }
+  }
+
+  function handleWithdrawalSubmit(e) {
+    e.preventDefault();
+    const shId = document.getElementById('wthShareholderSelect').value;
+    const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
+    const amt = Number(document.getElementById('wthAmount').value);
+
+    if (!sh) {
+      showToast('Please choose a valid shareholder', 'error');
+      return;
+    }
+
+    if (!amt || amt <= 0) {
+      showToast('Please enter a valid withdrawal amount', 'error');
+      return;
+    }
+
+    const avail = Number(sh.Available_Balance) || 0;
+    if (amt > avail) {
+      showToast(`Withdrawal amount (৳ ${amt.toLocaleString()}) cannot exceed shareholder available balance (৳ ${avail.toLocaleString()})!`, 'error');
+      return;
+    }
+
+    const payload = {
+      Shareholder_ID: shId,
+      Amount: amt,
+      Withdrawal_Date: document.getElementById('wthDate').value || getLocalDateString(),
+      Reference_No: document.getElementById('wthRef').value.trim(),
+      Notes: document.getElementById('wthNotes').value.trim()
+    };
+
+    callBackend('addWithdrawal', payload, res => {
+      closeModal('withdrawalModal');
+      showToast(res.message || 'Withdrawal processed successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 5. BORROWER MANAGEMENT
+   * ============================================================================
+   */
+  function renderBorrowersTable(list = null) {
+    const tbody = document.getElementById('borrowersTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.borrowers;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding:2rem; color:var(--text-muted);">No borrowers registered</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(b => {
+      const isCompany = b.Borrower_Type === 'Company / Business';
+      const typeBadge = isCompany ? 'badge-pending' : (b.Borrower_Type === 'Shareholder' ? 'badge-paid' : 'badge-status');
+
+      return `
+      <tr>
+        <td><strong>${b.Borrower_ID}</strong></td>
+        <td><span class="badge-status ${typeBadge}">${b.Borrower_Type}</span></td>
+        <td><strong>${b.Full_Name}</strong></td>
+        <td>
+          <div>${b.Phone || '<span style="color:var(--text-light); font-style:italic;">No phone</span>'}</div>
+          <small style="color:var(--text-light);">${b.Email || '-'}</small>
+        </td>
+        <td><span style="font-family:monospace; font-size:0.8rem;">${b.NID_Or_Reg_No || '-'}</span></td>
+        <td>${b.Contact_Person || '-'}</td>
+        <td>${b.Registration_Date ? formatDate(b.Registration_Date) : '-'}</td>
+        <td><span class="badge-status ${b.Status === 'Active' ? 'badge-active' : 'badge-inactive'}">${b.Status}</span></td>
+        <td>
+          <button class="btn-action-sm" onclick="editBorrower('${b.Borrower_ID}')">Edit</button>
+        </td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function filterBorrowers() {
+    const q = (document.getElementById('borrowerSearch').value || '').toLowerCase();
+    const type = document.getElementById('borrowerTypeFilter').value;
+    const status = document.getElementById('borrowerStatusFilter').value;
+
+    const filtered = state.data.borrowers.filter(b => {
+      const matchQ = String(b.Full_Name).toLowerCase().includes(q) ||
+        String(b.Phone).toLowerCase().includes(q) ||
+        String(b.Borrower_ID).toLowerCase().includes(q) ||
+        String(b.NID_Or_Reg_No).toLowerCase().includes(q);
+      const matchType = (type === 'ALL') || (b.Borrower_Type === type);
+      const matchStatus = (status === 'ALL') || (b.Status === status);
+      return matchQ && matchType && matchStatus;
+    });
+
+    renderBorrowersTable(filtered);
+  }
+
+  function openBorrowerModal(isEdit = false) {
+    document.getElementById('borrowerForm').reset();
+    document.getElementById('brFormId').value = '';
+    document.getElementById('borrowerModalTitle').textContent = isEdit ? 'Edit Borrower' : 'Register New Borrower';
+    const todayIso = getLocalDateString();
+    document.getElementById('brFormDate').value = todayIso;
+    toggleBorrowerTypeFields();
+    openModal('borrowerModal');
+  }
+
+  function toggleBorrowerTypeFields() {
+    const type = document.getElementById('brFormType').value;
+    const isCompany = type === 'Company / Business';
+    const isShareholder = type === 'Shareholder';
+
+    document.getElementById('brContactPersonGroup').style.display = isCompany ? 'flex' : 'none';
+    const shGroup = document.getElementById('brShareholderSelectGroup');
+    if (shGroup) shGroup.style.display = isShareholder ? 'flex' : 'none';
+
+    document.getElementById('brNameLabel').textContent = isCompany ? 'Company / Business Name *' : 'Full Name *';
+    document.getElementById('brNidLabel').textContent = isCompany ? 'Company Registration / Trade License *' : 'NID Number *';
+
+    if (isShareholder) {
+      populateBorrowerShareholderSelect();
+    }
+  }
+
+  function populateBorrowerShareholderSelect() {
+    const select = document.getElementById('brShareholderSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Choose Shareholder to Auto-fill --</option>' +
+      state.data.shareholders.map(s => `
+      <option value="${s.Shareholder_ID}">${s.Full_Name} (${s.Shareholder_ID})</option>
+    `).join('');
+  }
+
+  function autoFillBorrowerFromShareholder() {
+    const shId = document.getElementById('brShareholderSelect').value;
+    if (!shId) return;
+
+    const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
+    if (!sh) return;
+
+    document.getElementById('brFormName').value = sh.Full_Name || '';
+    document.getElementById('brFormPhone').value = sh.Phone || '';
+    document.getElementById('brFormEmail').value = sh.Email || '';
+    document.getElementById('brFormNID').value = sh.NID_Number || '';
+    document.getElementById('brFormAddress').value = sh.Address || '';
+  }
+
+  function editBorrower(bId) {
+    const b = state.data.borrowers.find(x => x.Borrower_ID === bId);
+    if (!b) return;
+
+    openBorrowerModal(true);
+    document.getElementById('brFormId').value = b.Borrower_ID;
+    document.getElementById('brFormType').value = b.Borrower_Type;
+    toggleBorrowerTypeFields();
+    document.getElementById('brFormName').value = b.Full_Name || '';
+    document.getElementById('brFormContactPerson').value = b.Contact_Person || '';
+    document.getElementById('brFormPhone').value = b.Phone || '';
+    document.getElementById('brFormEmail').value = b.Email || '';
+    document.getElementById('brFormNID').value = b.NID_Or_Reg_No || '';
+    document.getElementById('brFormDate').value = b.Registration_Date || '';
+    document.getElementById('brFormStatus').value = b.Status || 'Active';
+    document.getElementById('brFormAddress').value = b.Address || '';
+    document.getElementById('brFormNotes').value = b.Notes || '';
+  }
+
+  function handleBorrowerSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('brFormId').value;
+    const isEdit = !!id;
+
+    const payload = {
+      Borrower_ID: id,
+      Borrower_Type: document.getElementById('brFormType').value,
+      Full_Name: document.getElementById('brFormName').value.trim(),
+      Contact_Person: document.getElementById('brFormContactPerson').value.trim(),
+      Phone: document.getElementById('brFormPhone').value.trim(),
+      Email: document.getElementById('brFormEmail').value.trim(),
+      NID_Or_Reg_No: document.getElementById('brFormNID').value.trim(),
+      Registration_Date: document.getElementById('brFormDate').value || getLocalDateString(),
+      Status: document.getElementById('brFormStatus').value,
+      Address: document.getElementById('brFormAddress').value.trim(),
+      Notes: document.getElementById('brFormNotes').value.trim()
+    };
+
+    const action = isEdit ? 'updateBorrower' : 'addBorrower';
+    callBackend(action, payload, res => {
+      closeModal('borrowerModal');
+      showToast(isEdit ? 'Borrower updated successfully!' : 'Borrower registered successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 6. LOAN MANAGEMENT (0% Interest, Penny-Adjusted Installments)
+   * ============================================================================
+   */
+  function renderLoansTable(list = null) {
+    const tbody = document.getElementById('loansTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.loans;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center" style="padding:2rem; color:var(--text-muted);">No loans issued</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(l => {
+      const isCompleted = l.Loan_Status === 'Completed';
+      const statusClass = isCompleted ? 'badge-paid' : 'badge-active';
+
+      return `
+      <tr>
+        <td><strong>${l.Loan_ID}</strong></td>
+        <td><strong>${l.Borrower_Name}</strong></td>
+        <td><small style="color:var(--text-muted);">${l.Borrower_Type}</small></td>
+        <td class="tnum" style="font-weight:700; color:var(--navy-primary);">${formatBDT(l.Loan_Amount)}</td>
+        <td>${l.Duration_Months} mos</td>
+        <td class="tnum" style="font-weight:700;">${formatBDT(l.Monthly_Installment)}</td>
+        <td class="tnum" style="color:var(--green-primary); font-weight:700;">${formatBDT(l.Total_Paid)}</td>
+        <td class="tnum" style="color:var(--danger-red); font-weight:700;">${formatBDT(l.Remaining_Amount)}</td>
+        <td><span class="badge-status ${statusClass}">${l.Loan_Status}</span></td>
+        <td>
+          <button class="btn-action-sm" onclick="viewLoanSchedule('${l.Loan_ID}')">Schedule</button>
+        </td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function filterLoans() {
+    const q = (document.getElementById('loanSearch').value || '').toLowerCase();
+    const status = document.getElementById('loanStatusFilter').value;
+
+    const filtered = state.data.loans.filter(l => {
+      const matchQ = String(l.Loan_ID).toLowerCase().includes(q) ||
+        String(l.Borrower_Name).toLowerCase().includes(q);
+      const matchStatus = (status === 'ALL') || (l.Loan_Status === status);
+      return matchQ && matchStatus;
+    });
+
+    renderLoansTable(filtered);
+  }
+
+  function openLoanModal() {
+    document.getElementById('loanForm').reset();
+    const todayIso = getLocalDateString();
+    document.getElementById('loanDate').value = todayIso;
+
+    // Set default next month for first installment safely without month overflow bug
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    if (nextMonth.getDate() !== now.getDate()) {
+      nextMonth.setDate(0);
+    }
+    document.getElementById('loanFirstInstDate').value = getLocalDateString(nextMonth);
+
+    populateBorrowerDropdowns();
+    calculateLoanInstallmentPreview();
+    openModal('loanModal');
+  }
+
+  function calculateLoanInstallmentPreview() {
+    const amt = Number(document.getElementById('loanAmount').value) || 0;
+    const duration = parseInt(document.getElementById('loanDuration').value, 10) || 1;
+
+    if (amt > 0 && duration > 0) {
+      if (duration === 1) {
+        document.getElementById('loanMonthlyPreview').textContent = `৳ ${amt.toLocaleString()} / month`;
+        document.getElementById('loanFinalInstallmentNote').textContent =
+          `Month 1: ৳ ${amt.toLocaleString()} (Single installment loan repayment)`;
+      } else {
+        const regular = Math.floor(amt / duration);
+        const finalInst = amt - (regular * (duration - 1));
+        document.getElementById('loanMonthlyPreview').textContent = `৳ ${regular.toLocaleString()} / month`;
+        document.getElementById('loanFinalInstallmentNote').textContent =
+          `Months 1 to ${duration - 1}: ৳ ${regular.toLocaleString()} | Month ${duration} (Final adjustment): ৳ ${finalInst.toLocaleString()} (Total exact: ৳ ${amt.toLocaleString()})`;
+      }
+    } else {
+      document.getElementById('loanMonthlyPreview').textContent = '৳ 0';
+      document.getElementById('loanFinalInstallmentNote').textContent = '';
+    }
+  }
+
+  function handleLoanSubmit(e) {
+    e.preventDefault();
+    const bId = document.getElementById('loanBorrowerSelect').value;
+    const b = state.data.borrowers.find(x => x.Borrower_ID === bId);
+
+    if (!b) {
+      showToast('Please select a valid borrower', 'error');
+      return;
+    }
+
+    const payload = {
+      Borrower_ID: b.Borrower_ID,
+      Borrower_Name: b.Full_Name,
+      Borrower_Type: b.Borrower_Type,
+      Loan_Amount: Number(document.getElementById('loanAmount').value),
+      Duration_Months: parseInt(document.getElementById('loanDuration').value, 10),
+      Loan_Date: document.getElementById('loanDate').value,
+      First_Installment_Date: document.getElementById('loanFirstInstDate').value,
+      Notes: document.getElementById('loanNotes').value.trim()
+    };
+
+    callBackend('addLoan', payload, res => {
+      closeModal('loanModal');
+      showToast(res.message || 'Loan issued successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  function viewLoanSchedule(loanId) {
+    const modal = document.getElementById('loanDetailsModal');
+    const body = document.getElementById('loanDetailsBody');
+    body.innerHTML = '<div class="spinner-box"><div class="spinner"></div><p>Loading repayment schedule...</p></div>';
+    openModal('loanDetailsModal');
+
+    callBackend('getLoanDetails', loanId, res => {
+      if (!res || !res.loan) {
+        body.innerHTML = '<p style="color:var(--danger-red);">Could not load loan details.</p>';
+        return;
+      }
+
+      const l = res.loan;
+      const installments = res.installments || [];
+      const payments = res.payments || [];
+      state.currentLoanScheduleInstallments = installments;
+
+      const totalAmt = Number(l.Loan_Amount) || 0;
+      const paidAmt = Number(l.Total_Paid) || 0;
+      const remaining = Number(l.Remaining_Amount) || 0;
+      const progressPct = totalAmt > 0 ? Math.min(100, Math.round((paidAmt / totalAmt) * 100)) : 0;
+
+      document.getElementById('loanDetailsTitle').textContent = `Loan ${l.Loan_ID} — ${l.Borrower_Name}`;
+
+      body.innerHTML = `
+      <div style="background:#F8FAFD; padding:1.25rem; border-radius:1rem; border:1px solid var(--border-color); margin-bottom:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <div>
+            <div class="eyebrow eyebrow-green">0% Interest Credit Facility</div>
+            <h4 style="font-size:1.1rem; color:var(--navy-primary); font-weight:800;">${formatBDT(totalAmt)} (${l.Duration_Months} Months)</h4>
+          </div>
+          <span class="badge-status ${l.Loan_Status === 'Completed' ? 'badge-paid' : 'badge-active'}">${l.Loan_Status}</span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div style="margin-bottom:0.75rem;">
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:700; margin-bottom:0.25rem;">
+            <span>Repayment Progress</span>
+            <span>${progressPct}% Paid</span>
+          </div>
+          <div style="height:8px; background:var(--border-color); border-radius:9999px; overflow:hidden;">
+            <div style="width:${progressPct}%; height:100%; background:var(--green-primary); transition:width 0.4s var(--bezier);"></div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem; font-size:0.85rem; border-top:1px solid var(--border-color); padding-top:0.75rem;">
+          <div><strong>Total Disbursed:</strong> ${formatBDT(totalAmt)}</div>
+          <div><strong>Total Recovered:</strong> <span style="color:var(--green-primary); font-weight:700;">${formatBDT(paidAmt)}</span></div>
+          <div><strong>Remaining Balance:</strong> <span style="color:var(--danger-red); font-weight:700;">${formatBDT(remaining)}</span></div>
+        </div>
+      </div>
+
+      <div class="eyebrow eyebrow-navy">Monthly Installment Schedule (${installments.length} Months)</div>
+      <div class="table-responsive" style="max-height:280px; margin-bottom:1.5rem;">
+        <table class="corporate-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Due Date</th>
+              <th>Due Amount</th>
+              <th>Paid Amount</th>
+              <th>Balance</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${installments.map(ins => {
+        const isPaid = ins.Status === 'Paid';
+        const isOverdue = ins.Status === 'Overdue';
+        const statusClass = isPaid ? 'badge-paid' : (isOverdue ? 'badge-overdue' : (ins.Status === 'Partially Paid' ? 'badge-partial' : 'badge-pending'));
+
+        return `
+                <tr>
+                  <td><strong>${ins.Installment_Number}</strong></td>
+                  <td>${formatDate(ins.Due_Date)}</td>
+                  <td class="tnum" style="font-weight:700;">${formatBDT(ins.Due_Amount)}</td>
+                  <td class="tnum" style="color:var(--green-primary);">${formatBDT(ins.Paid_Amount)}</td>
+                  <td class="tnum" style="font-weight:700; color:var(--navy-primary);">${formatBDT(ins.Balance_Due)}</td>
+                  <td><span class="badge-status ${statusClass}">${ins.Status}</span></td>
+                  <td>
+                    ${!isPaid ? `<button class="btn-action-sm btn-success" onclick="closeModal('loanDetailsModal'); openPaymentModal('${ins.Installment_ID}')">Pay</button>` : '<span style="color:var(--green-primary); font-weight:700;">✓ Done</span>'}
+                  </td>
+                </tr>
+              `;
+      }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      ${payments.length > 0 ? `
+        <div class="eyebrow eyebrow-green">Repayment Transaction Receipts (${payments.length})</div>
+        <div class="table-responsive" style="max-height:160px;">
+          <table class="corporate-table">
+            <thead>
+              <tr><th>Payment ID</th><th>Date</th><th>Amount</th><th>Reference</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              ${payments.map(p => `
+                <tr>
+                  <td><strong>${p.Payment_ID}</strong></td>
+                  <td>${formatDate(p.Payment_Date)}</td>
+                  <td class="tnum" style="color:var(--green-primary); font-weight:700;">+ ${formatBDT(p.Amount_Paid)}</td>
+                  <td>${p.Reference_No || '-'}</td>
+                  <td>${p.Notes || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
+    `;
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 7. INSTALLMENT MANAGEMENT & PAYMENT RECORDING
+   * ============================================================================
+   */
+  function renderInstallmentsTable(list = null) {
+    const tbody = document.getElementById('installmentsTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.installments;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center" style="padding:2rem; color:var(--text-muted);">No installments found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(ins => {
+      const isPaid = ins.Status === 'Paid';
+      const isOverdue = ins.Status === 'Overdue';
+      const statusClass = isPaid ? 'badge-paid' : (isOverdue ? 'badge-overdue' : (ins.Status === 'Partially Paid' ? 'badge-partial' : 'badge-pending'));
+
+      return `
+      <tr>
+        <td><strong>${ins.Installment_ID}</strong></td>
+        <td><a href="javascript:void(0)" onclick="viewLoanSchedule('${ins.Loan_ID}')" style="color:var(--navy-primary); font-weight:700; text-decoration:none;">${ins.Loan_ID}</a></td>
+        <td><strong>${ins.Borrower_Name}</strong></td>
+        <td>#${ins.Installment_Number}</td>
+        <td>${formatDate(ins.Due_Date)}</td>
+        <td class="tnum" style="font-weight:700;">${formatBDT(ins.Due_Amount)}</td>
+        <td class="tnum" style="color:var(--green-primary);">${formatBDT(ins.Paid_Amount)}</td>
+        <td class="tnum" style="font-weight:700; color:var(--navy-primary);">${formatBDT(ins.Balance_Due)}</td>
+        <td><span class="badge-status ${statusClass}">${ins.Status}</span></td>
+        <td>
+          ${!isPaid ? `
+            <button class="btn-action-sm btn-success" onclick="openPaymentModal('${ins.Installment_ID}')">Record Payment</button>
+          ` : '<span style="color:var(--green-primary); font-weight:700;">✓ Settled</span>'}
+        </td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function filterInstallments() {
+    const q = (document.getElementById('installmentSearch').value || '').toLowerCase();
+    const status = document.getElementById('installmentStatusFilter').value;
+
+    const filtered = state.data.installments.filter(ins => {
+      const matchQ = String(ins.Borrower_Name).toLowerCase().includes(q) ||
+        String(ins.Loan_ID).toLowerCase().includes(q) ||
+        String(ins.Installment_ID).toLowerCase().includes(q);
+      const matchStatus = (status === 'ALL') || (ins.Status === status);
+      return matchQ && matchStatus;
+    });
+
+    renderInstallmentsTable(filtered);
+  }
+
+  function openPaymentModal(instId) {
+    let ins = state.data.installments.find(i => i.Installment_ID === instId);
+    if (!ins && state.currentLoanScheduleInstallments) {
+      ins = state.currentLoanScheduleInstallments.find(i => i.Installment_ID === instId);
+    }
+    if (!ins) {
+      showToast('Installment record not found', 'error');
+      return;
+    }
+
+    document.getElementById('paymentForm').reset();
+    document.getElementById('payFormInstId').value = ins.Installment_ID;
+    document.getElementById('payBorrowerLine').textContent = `Borrower: ${ins.Borrower_Name} (Loan: ${ins.Loan_ID})`;
+
+    const balanceDue = Number(ins.Balance_Due || ins.Due_Amount);
+    document.getElementById('payInstallmentLine').textContent = `Installment #${ins.Installment_Number} — Balance Due: ৳ ${balanceDue.toLocaleString()}`;
+    document.getElementById('payAmount').value = balanceDue;
+
+    const todayIso = getLocalDateString();
+    document.getElementById('payDate').value = todayIso;
+
+    openModal('paymentModal');
+  }
+
+  function handlePaymentSubmit(e) {
+    e.preventDefault();
+    const instId = document.getElementById('payFormInstId').value;
+    const amt = Number(document.getElementById('payAmount').value);
+
+    if (!instId) {
+      showToast('No installment selected', 'error');
+      return;
+    }
+    if (!amt || amt <= 0) {
+      showToast('Please enter a valid payment amount', 'error');
+      return;
+    }
+
+    const payload = {
+      Installment_ID: instId,
+      Amount_Paid: amt,
+      Payment_Date: document.getElementById('payDate').value || getLocalDateString(),
+      Reference_No: document.getElementById('payRef').value.trim(),
+      Notes: document.getElementById('payNotes').value.trim()
+    };
+
+    callBackend('recordInstallmentPayment', payload, res => {
+      closeModal('paymentModal');
+      showToast(res.message || 'Payment recorded successfully!');
+      loadAllApplicationData();
+
+      // If loan details schedule modal is currently open, refresh its statement live
+      const detailsModal = document.getElementById('loanDetailsModal');
+      if (detailsModal && detailsModal.classList.contains('active') && state.currentLoanScheduleInstallments && state.currentLoanScheduleInstallments.length > 0) {
+        const curLoanId = state.currentLoanScheduleInstallments[0].Loan_ID;
+        if (curLoanId) viewLoanSchedule(curLoanId);
+      }
+    });
+  }
+
+  /**
+   * ============================================================================
+   * 8. TRANSACTIONS LEDGER
+   * ============================================================================
+   */
+  function renderTransactionsTable(list = null) {
+    const tbody = document.getElementById('transactionsTableBody');
+    if (!tbody) return;
+
+    const data = list || state.data.transactions;
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding:2rem; color:var(--text-muted);">No transactions recorded</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(t => {
+      const isIncome = t.Direction === 'IN';
+      const amountColor = isIncome ? 'color:var(--green-primary); font-weight:700;' : 'color:var(--navy-primary); font-weight:700;';
+      const flowSign = isIncome ? '+' : '-';
+
+      return `
+      <tr>
+        <td><strong>${t.Transaction_ID}</strong></td>
+        <td>${formatDate(t.Date)}</td>
+        <td><span class="badge-status ${isIncome ? 'badge-paid' : 'badge-pending'}">${t.Type}</span></td>
+        <td><small style="color:var(--text-muted);">${t.Category}</small></td>
+        <td><strong>${t.Entity_Name}</strong> <small style="color:var(--text-light);">(${t.Entity_ID})</small></td>
+        <td><strong>${t.Direction}</strong></td>
+        <td class="tnum" style="${amountColor}">${flowSign} ${formatBDT(t.Amount)}</td>
+        <td><span style="font-family:monospace; font-size:0.8rem;">${t.Reference_No || '-'}</span></td>
+        <td>${t.Notes || '-'}</td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function filterTransactions() {
+    const q = (document.getElementById('txnSearch').value || '').toLowerCase();
+    const type = document.getElementById('txnTypeFilter').value;
+    const dir = document.getElementById('txnDirectionFilter').value;
+    const dFrom = document.getElementById('txnDateFrom').value;
+    const dTo = document.getElementById('txnDateTo').value;
+
+    const filtered = state.data.transactions.filter(t => {
+      const matchQ = String(t.Transaction_ID).toLowerCase().includes(q) ||
+        String(t.Entity_Name).toLowerCase().includes(q) ||
+        String(t.Reference_No).toLowerCase().includes(q);
+      const matchType = (type === 'ALL') || (t.Type === type);
+      const matchDir = (dir === 'ALL') || (t.Direction === dir);
+      const matchDate = (!dFrom || t.Date >= dFrom) && (!dTo || t.Date <= dTo);
+      return matchQ && matchType && matchDir && matchDate;
+    });
+
+    renderTransactionsTable(filtered);
+  }
+
+  /**
+   * ============================================================================
+   * 9. REPORTS ENGINE
+   * ============================================================================
+   */
+  let currentReportDataset = [];
+
+  function generateReport() {
+    const rType = document.getElementById('reportTypeSelect').value;
+    const dFrom = document.getElementById('reportDateFrom').value;
+    const dTo = document.getElementById('reportDateTo').value;
+    const container = document.getElementById('reportOutputContainer');
+
+    container.innerHTML = '<div class="spinner-box"><div class="spinner"></div><p>Compiling report data...</p></div>';
+
+    callBackend('getReportData', { type: rType, dateFrom: dFrom, dateTo: dTo }, res => {
+      currentReportDataset = res || [];
+      renderReportOutput(rType, res);
+    });
+  }
+
+  function renderReportOutput(rType, data) {
+    const container = document.getElementById('reportOutputContainer');
+    if (!container) return;
+
+    if (rType === 'financial_summary') {
+      const s = data || {};
+      const b = s.breakdown || {};
+
+      container.innerHTML = `
+      <div class="metrics-grid-3">
+        <div class="bezel-card">
+          <div class="bezel-inner">
+            <div class="eyebrow eyebrow-green">Gross Inflow</div>
+            <div class="metric-title">Total Capital In</div>
+            <div class="metric-value metric-value-green tnum">${formatBDT(s.totalInflow)}</div>
+            <div class="metric-sub">Deposits (৳ ${formatBDT(b.deposits)}) + Repayments (৳ ${formatBDT(b.repayments)})</div>
+          </div>
+        </div>
+        <div class="bezel-card">
+          <div class="bezel-inner">
+            <div class="eyebrow eyebrow-navy">Gross Outflow</div>
+            <div class="metric-title">Total Capital Out</div>
+            <div class="metric-value tnum">${formatBDT(s.totalOutflow)}</div>
+            <div class="metric-sub">Withdrawals (৳ ${formatBDT(b.withdrawals)}) + Disbursed (৳ ${formatBDT(b.disbursements)})</div>
+          </div>
+        </div>
+        <div class="bezel-card">
+          <div class="bezel-inner">
+            <div class="eyebrow eyebrow-green">Net Position</div>
+            <div class="metric-title">Available Liquidity</div>
+            <div class="metric-value tnum" style="color:var(--navy-primary);">${formatBDT(s.netLiquidity)}</div>
+            <div class="metric-sub">Audited Transactions: ${s.transactionCount || 0}</div>
+          </div>
+        </div>
+      </div>
+    `;
+      return;
+    }
+
+    // Generic dynamic tabular report rendering
+    if (!Array.isArray(data) || data.length === 0) {
+      container.innerHTML = '<div class="text-center" style="padding:3rem; color:var(--text-muted);">No records found matching selected report criteria.</div>';
+      return;
+    }
+
+    const keys = Object.keys(data[0]);
+
+    container.innerHTML = `
+    <div style="margin-bottom:0.75rem; font-size:0.85rem; color:var(--text-muted);">
+      Showing <strong>${data.length}</strong> audited records
+    </div>
+    <div class="table-responsive">
+      <table class="corporate-table" id="printableReportTable">
+        <thead>
+          <tr>${keys.map(k => `<th>${k.replace(/_/g, ' ')}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${data.map(row => `
+            <tr>
+              ${keys.map(k => `<td>${row[k] !== undefined && row[k] !== null ? row[k] : '-'}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  }
+
+  function exportReportToCSV() {
+    if (!currentReportDataset || (Array.isArray(currentReportDataset) && currentReportDataset.length === 0)) {
+      showToast('No data available to export', 'error');
+      return;
+    }
+
+    const rType = document.getElementById('reportTypeSelect').value;
+
+    if (rType === 'financial_summary') {
+      const s = currentReportDataset || {};
+      const b = s.breakdown || {};
+      let csv = "Financial Summary KPI,Amount (BDT)\r\n";
+      csv += `"Total Capital Inflow","${s.totalInflow || 0}"\r\n`;
+      csv += `"  - Member Deposits","${b.deposits || 0}"\r\n`;
+      csv += `"  - Loan Repayments","${b.repayments || 0}"\r\n`;
+      csv += `"Total Capital Outflow","${s.totalOutflow || 0}"\r\n`;
+      csv += `"  - Member Withdrawals","${b.withdrawals || 0}"\r\n`;
+      csv += `"  - Loan Disbursements","${b.disbursements || 0}"\r\n`;
+      csv += `"Net Available Liquidity","${s.netLiquidity || 0}"\r\n`;
+      csv += `"Audited Transactions Count","${s.transactionCount || 0}"\r\n`;
+
+      downloadCSV(csv, `Nirman_Finance_Financial_Summary_${getLocalDateString()}.csv`);
+      showToast('Financial Summary CSV exported!');
+      return;
+    }
+
+    let items = Array.isArray(currentReportDataset) ? currentReportDataset : [currentReportDataset];
+    const keys = Object.keys(items[0]);
+    let csv = keys.join(',') + '\r\n';
+
+    items.forEach(row => {
+      const line = keys.map(k => {
+        let val = row[k] !== undefined && row[k] !== null ? String(row[k]) : '';
+        val = val.replace(/"/g, '""');
+        return `"${val}"`;
+      }).join(',');
+      csv += line + '\r\n';
+    });
+
+    downloadCSV(csv, `Nirman_Finance_Report_${getLocalDateString()}.csv`);
+    showToast('Report CSV exported successfully!');
+  }
+
+  function downloadCSV(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport() {
+    window.print();
+  }
+
+  /**
+   * ============================================================================
+   * 10. SETTINGS & DATABASE INITIALIZATION
+   * ============================================================================
+   */
+  function renderSettings() {
+    const s = state.data.settings;
+    if (document.getElementById('settingOrgName')) document.getElementById('settingOrgName').value = s.ORG_NAME || 'Nirman Finance LTD';
+    if (document.getElementById('settingOrgPhone')) document.getElementById('settingOrgPhone').value = s.ORG_PHONE || '';
+    if (document.getElementById('settingOrgEmail')) document.getElementById('settingOrgEmail').value = s.ORG_EMAIL || '';
+    if (document.getElementById('settingOrgAddress')) document.getElementById('settingOrgAddress').value = s.ORG_ADDRESS || '';
+  }
+
+  function saveSystemSettings() {
+    const payload = {
+      ORG_NAME: document.getElementById('settingOrgName').value.trim(),
+      ORG_PHONE: document.getElementById('settingOrgPhone').value.trim(),
+      ORG_EMAIL: document.getElementById('settingOrgEmail').value.trim(),
+      ORG_ADDRESS: document.getElementById('settingOrgAddress').value.trim()
+    };
+
+    callBackend('updateSettings', payload, res => {
+      showToast('Organization settings updated successfully!');
+    });
+  }
+
+  function runInitializeDatabase() {
+    if (!confirm('Initialize or verify all Google Sheets database tables with standard headers and corporate styles?')) return;
+    callBackend('initializeDatabase', null, res => {
+      showToast(res.message || 'Database schema initialized successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  function runSeedDemoData() {
+    if (!confirm('Populate realistic demonstration shareholders, 0% interest loans, and transactions?')) return;
+    callBackend('seedDemoData', null, res => {
+      showToast(res.message || 'Demo data loaded successfully!');
+      loadAllApplicationData();
+    });
+  }
+
+  function initCloudSettings() {
+    const savedUrl = localStorage.getItem('NIRMAN_GAS_API_URL') || '';
+    const input = document.getElementById('settingGasApiUrl');
+    const badge = document.getElementById('cloudConnectionBadge');
+    if (input) input.value = savedUrl;
+    if (badge) {
+      if (state.isGAS) {
+        badge.textContent = 'Active (Native Google Apps Script)';
+        badge.className = 'badge-status badge-success';
+      } else if (savedUrl) {
+        badge.textContent = 'Active (GAS Web App API Connected)';
+        badge.className = 'badge-status badge-success';
+      } else {
+        badge.textContent = 'Standalone / Offline Mock Database';
+        badge.className = 'badge-status badge-warning';
+      }
+    }
+  }
+
+  function saveGasApiUrl() {
+    const input = document.getElementById('settingGasApiUrl');
+    if (!input) return;
+    const url = input.value.trim();
+    if (url) {
+      localStorage.setItem('NIRMAN_GAS_API_URL', url);
+      showToast('Google Apps Script Web App URL saved successfully!');
+    } else {
+      localStorage.removeItem('NIRMAN_GAS_API_URL');
+      showToast('API URL removed. Switched to offline demo mode.');
+    }
+    initCloudSettings();
+    loadAllApplicationData();
+  }
+
+  function testGasApiUrl() {
+    const input = document.getElementById('settingGasApiUrl');
+    const url = input ? input.value.trim() : '';
+    if (!url) {
+      showToast('Please enter your Google Apps Script Web App URL first.', 'error');
+      return;
+    }
+    showToast('Testing live connection to Google Apps Script...');
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'ping' })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res && res.success) {
+        showToast('Connection verified successfully: ' + (res.message || 'API Online!'));
+        initCloudSettings();
+      } else {
+        showToast('Connection error: ' + (res.message || 'Invalid response from script'), 'error');
+      }
+    })
+    .catch(err => {
+      showToast('Connection test failed: ' + err.message, 'error');
+    });
+  }
+
+  /**
+   * Helper: Populate Shareholder Dropdowns
+   */
+  function populateShareholderDropdowns() {
+    const depSelect = document.getElementById('depShareholderSelect');
+    const wthSelect = document.getElementById('wthShareholderSelect');
+
+    const options = '<option value="">-- Choose Shareholder --</option>' +
+      state.data.shareholders.map(s => `
+      <option value="${s.Shareholder_ID}">${s.Full_Name} (${s.Shareholder_ID})</option>
+    `).join('');
+
+    if (depSelect) depSelect.innerHTML = options;
+    if (wthSelect) wthSelect.innerHTML = options;
+  }
+
+  /**
+   * Helper: Populate Borrower Dropdowns
+   */
+  function populateBorrowerDropdowns() {
+    const loanSelect = document.getElementById('loanBorrowerSelect');
+    if (!loanSelect) return;
+
+    loanSelect.innerHTML = '<option value="">-- Choose Borrower --</option>' +
+      state.data.borrowers.map(b => `
+      <option value="${b.Borrower_ID}">${b.Full_Name} [${b.Borrower_Type}] (${b.Borrower_ID})</option>
+    `).join('');
+  }
+
+  /**
+   * Modal Open & Close Utility
+   */
+  function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  }
+
+  function openQuickActionModal() {
+    openModal('quickActionModal');
+  }
+
+  /**
+   * ============================================================================
+   * LOCAL BROWSER OFFLINE / STANDALONE MOCK BACKEND ADAPTER
+   * (Allows full instant interactive testing in direct browser preview)
+   * ============================================================================
+   */
+  function mockBackendDispatcher(fn, args, callback, errorCallback) {
+    // Check local mock state
+    if (!window._mockDB) {
+      window._mockDB = {
+        shareholders: [
+          {
+            Shareholder_ID: 'SH-1001',
+            Full_Name: 'Mohammad Rafiqul Islam',
+            Phone: '+880 1711-234567',
+            Email: 'rafiqul.islam@gmail.com',
+            Address: 'House 42, Road 11, Banani, Dhaka',
+            NID_Number: '19822694580001234',
+            Joining_Date: '2026-01-10',
+            Total_Deposited: 150000,
+            Total_Withdrawn: 0,
+            Available_Balance: 150000,
+            Number_Of_Shares: 150,
+            Total_Share_Value: 150000,
+            Status: 'Active',
+            Notes: 'Founding member and director'
+          },
+          {
+            Shareholder_ID: 'SH-1002',
+            Full_Name: 'Begum Shamsun Nahar',
+            Phone: '+880 1819-876543',
+            Email: 'nahar.shamsun@yahoo.com',
+            Address: 'Flat 4B, Concord Tower, Dhanmondi, Dhaka',
+            NID_Number: '19792694580005678',
+            Joining_Date: '2026-02-01',
+            Total_Deposited: 200000,
+            Total_Withdrawn: 20000,
+            Available_Balance: 180000,
+            Number_Of_Shares: 180,
+            Total_Share_Value: 180000,
+            Status: 'Active',
+            Notes: 'Senior investor'
+          },
+          {
+            Shareholder_ID: 'SH-1003',
+            Full_Name: 'Engr. Tanvir Ahmed',
+            Phone: '+880 1912-334455',
+            Email: 'tanvir.ahmed@primeconsult.com',
+            Address: 'Plot 15, Sector 4, Uttara, Dhaka',
+            NID_Number: '19882694580009988',
+            Joining_Date: '2026-03-15',
+            Total_Deposited: 100000,
+            Total_Withdrawn: 0,
+            Available_Balance: 100000,
+            Number_Of_Shares: 100,
+            Total_Share_Value: 100000,
+            Status: 'Active',
+            Notes: 'Advisory committee'
+          }
+        ],
+        deposits: [
+          {
+            Deposit_ID: 'DEP-2001',
+            Shareholder_ID: 'SH-1001',
+            Shareholder_Name: 'Mohammad Rafiqul Islam',
+            Amount: 150000,
+            Deposit_Date: '2026-01-10',
+            Reference_No: 'INITIAL-CAPITAL',
+            Notes: 'Initial 150 shares purchase'
+          },
+          {
+            Deposit_ID: 'DEP-2002',
+            Shareholder_ID: 'SH-1002',
+            Shareholder_Name: 'Begum Shamsun Nahar',
+            Amount: 200000,
+            Deposit_Date: '2026-02-01',
+            Reference_No: 'CHQ-889901',
+            Notes: 'Initial 200 shares purchase'
+          },
+          {
+            Deposit_ID: 'DEP-2003',
+            Shareholder_ID: 'SH-1003',
+            Shareholder_Name: 'Engr. Tanvir Ahmed',
+            Amount: 100000,
+            Deposit_Date: '2026-03-15',
+            Reference_No: 'EFT-332211',
+            Notes: 'Initial 100 shares purchase'
+          }
+        ],
+        withdrawals: [
+          {
+            Withdrawal_ID: 'WTH-3001',
+            Shareholder_ID: 'SH-1002',
+            Shareholder_Name: 'Begum Shamsun Nahar',
+            Amount: 20000,
+            Withdrawal_Date: '2026-04-05',
+            Reference_No: 'BANK-CHQ-1049',
+            Notes: 'Partial capital withdrawal of 20 shares'
+          }
+        ],
+        borrowers: [
+          {
+            Borrower_ID: 'BR-1001',
+            Borrower_Type: 'Company / Business',
+            Full_Name: 'Apex Logistics & Transport LTD',
+            Phone: '+880 1713-998877',
+            Email: 'finance@apexlogistics-bd.com',
+            Address: 'Tejgaon I/A, Dhaka',
+            NID_Or_Reg_No: 'C-184920/2021',
+            Contact_Person: 'Kazi Mahmudul Hasan (CFO)',
+            Registration_Date: '2026-04-01',
+            Status: 'Active',
+            Notes: 'Fleet expansion loan application'
+          },
+          {
+            Borrower_ID: 'BR-1002',
+            Borrower_Type: 'Outside Individual',
+            Full_Name: 'Farhan Kabir Chowdhury',
+            Phone: '+880 1612-445566',
+            Email: 'farhan.kabir@outlook.com',
+            Address: 'Mirpur DOHS, Road 6, Dhaka',
+            NID_Or_Reg_No: '19902694580007711',
+            Contact_Person: '',
+            Registration_Date: '2026-04-10',
+            Status: 'Active',
+            Notes: 'Small enterprise trader'
+          }
+        ],
+        loans: [
+          {
+            Loan_ID: 'LN-4001',
+            Borrower_ID: 'BR-1001',
+            Borrower_Name: 'Apex Logistics & Transport LTD',
+            Borrower_Type: 'Company / Business',
+            Loan_Amount: 600000,
+            Loan_Date: '2026-04-15',
+            Duration_Months: 12,
+            Monthly_Installment: 50000,
+            First_Installment_Date: '2026-05-15',
+            Total_Paid: 50000,
+            Remaining_Amount: 550000,
+            Loan_Status: 'Active',
+            Notes: '0% Interest commercial transport loan'
+          },
+          {
+            Loan_ID: 'LN-4002',
+            Borrower_ID: 'BR-1002',
+            Borrower_Name: 'Farhan Kabir Chowdhury',
+            Borrower_Type: 'Outside Individual',
+            Loan_Amount: 150000,
+            Loan_Date: '2026-05-01',
+            Duration_Months: 6,
+            Monthly_Installment: 25000,
+            First_Installment_Date: '2026-06-01',
+            Total_Paid: 0,
+            Remaining_Amount: 150000,
+            Loan_Status: 'Active',
+            Notes: '0% Interest trade supply finance'
+          }
+        ],
+        installments: [
+          {
+            Installment_ID: 'LN-4001-INS-01',
+            Loan_ID: 'LN-4001',
+            Borrower_ID: 'BR-1001',
+            Borrower_Name: 'Apex Logistics & Transport LTD',
+            Installment_Number: 1,
+            Due_Date: '2026-05-15',
+            Due_Amount: 50000,
+            Paid_Amount: 50000,
+            Balance_Due: 0,
+            Status: 'Paid'
+          },
+          {
+            Installment_ID: 'LN-4001-INS-02',
+            Loan_ID: 'LN-4001',
+            Borrower_ID: 'BR-1001',
+            Borrower_Name: 'Apex Logistics & Transport LTD',
+            Installment_Number: 2,
+            Due_Date: '2026-06-15',
+            Due_Amount: 50000,
+            Paid_Amount: 0,
+            Balance_Due: 50000,
+            Status: 'Pending'
+          },
+          {
+            Installment_ID: 'LN-4002-INS-01',
+            Loan_ID: 'LN-4002',
+            Borrower_ID: 'BR-1002',
+            Borrower_Name: 'Farhan Kabir Chowdhury',
+            Installment_Number: 1,
+            Due_Date: '2026-06-01',
+            Due_Amount: 25000,
+            Paid_Amount: 0,
+            Balance_Due: 25000,
+            Status: 'Pending'
+          }
+        ],
+        payments: [
+          {
+            Payment_ID: 'PAY-6001',
+            Loan_ID: 'LN-4001',
+            Borrower_ID: 'BR-1001',
+            Borrower_Name: 'Apex Logistics & Transport LTD',
+            Installment_ID: 'LN-4001-INS-01',
+            Amount_Paid: 50000,
+            Payment_Date: '2026-05-14',
+            Reference_No: 'CHQ-778901',
+            Notes: 'First monthly installment paid via Account Payee Cheque'
+          }
+        ],
+        transactions: [
+          {
+            Transaction_ID: 'TXN-5001',
+            Date: '2026-01-10',
+            Type: 'DEPOSIT',
+            Category: 'Share Capital',
+            Entity_Type: 'Shareholder',
+            Entity_ID: 'SH-1001',
+            Entity_Name: 'Mohammad Rafiqul Islam',
+            Amount: 150000,
+            Direction: 'IN',
+            Reference_No: 'INITIAL-CAPITAL',
+            Notes: 'Initial share subscription'
+          },
+          {
+            Transaction_ID: 'TXN-5002',
+            Date: '2026-02-01',
+            Type: 'DEPOSIT',
+            Category: 'Share Capital',
+            Entity_Type: 'Shareholder',
+            Entity_ID: 'SH-1002',
+            Entity_Name: 'Begum Shamsun Nahar',
+            Amount: 200000,
+            Direction: 'IN',
+            Reference_No: 'CHQ-889901',
+            Notes: 'Initial share subscription'
+          },
+          {
+            Transaction_ID: 'TXN-5003',
+            Date: '2026-03-15',
+            Type: 'DEPOSIT',
+            Category: 'Share Capital',
+            Entity_Type: 'Shareholder',
+            Entity_ID: 'SH-1003',
+            Entity_Name: 'Engr. Tanvir Ahmed',
+            Amount: 100000,
+            Direction: 'IN',
+            Reference_No: 'EFT-332211',
+            Notes: 'Initial share subscription'
+          },
+          {
+            Transaction_ID: 'TXN-5004',
+            Date: '2026-04-05',
+            Type: 'WITHDRAWAL',
+            Category: 'Shareholder Withdrawal',
+            Entity_Type: 'Shareholder',
+            Entity_ID: 'SH-1002',
+            Entity_Name: 'Begum Shamsun Nahar',
+            Amount: 20000,
+            Direction: 'OUT',
+            Reference_No: 'BANK-CHQ-1049',
+            Notes: 'Partial share capital withdrawal'
+          },
+          {
+            Transaction_ID: 'TXN-5005',
+            Date: '2026-04-15',
+            Type: 'LOAN_DISBURSEMENT',
+            Category: '0% Interest Loan',
+            Entity_Type: 'Company / Business',
+            Entity_ID: 'BR-1001',
+            Entity_Name: 'Apex Logistics & Transport LTD',
+            Amount: 600000,
+            Direction: 'OUT',
+            Reference_No: 'LN-4001',
+            Notes: 'Disbursement of 0% interest loan for 12 months'
+          },
+          {
+            Transaction_ID: 'TXN-5006',
+            Date: '2026-05-14',
+            Type: 'LOAN_REPAYMENT',
+            Category: 'Installment Collection',
+            Entity_Type: 'Company / Business',
+            Entity_ID: 'BR-1001',
+            Entity_Name: 'Apex Logistics & Transport LTD',
+            Amount: 50000,
+            Direction: 'IN',
+            Reference_No: 'CHQ-778901',
+            Notes: 'Installment #1 Payment for Loan LN-4001'
+          }
+        ]
+      };
+    }
+
+    const db = window._mockDB;
+
+    setTimeout(() => {
+      switch (fn) {
+        case 'getDashboardData': {
+          let totalShareholders = db.shareholders.length;
+          let totalShares = db.shareholders.reduce((s, x) => s + (Number(x.Number_Of_Shares) || 0), 0);
+          let totalDeposits = db.deposits.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
+          let totalWithdrawals = db.withdrawals.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
+          let totalLoanAmount = db.loans.reduce((s, x) => s + (Number(x.Loan_Amount) || 0), 0);
+          let totalOutstandingLoanAmount = db.loans.reduce((s, x) => s + (Number(x.Remaining_Amount) || 0), 0);
+          let totalActiveLoans = db.loans.filter(l => l.Loan_Status === 'Active').length;
+
+          callback({
+            metrics: {
+              totalShareholders,
+              totalShares,
+              totalDeposits,
+              totalWithdrawals,
+              totalAvailableBalance: totalDeposits - totalWithdrawals,
+              totalActiveLoans,
+              totalLoanAmount,
+              totalOutstandingLoanAmount
+            },
+            charts: [
+              { label: 'Jan 2026', deposits: 150000, withdrawals: 0 },
+              { label: 'Feb 2026', deposits: 200000, withdrawals: 0 },
+              { label: 'Mar 2026', deposits: 100000, withdrawals: 0 },
+              { label: 'Apr 2026', deposits: 0, withdrawals: 20000 },
+              { label: 'May 2026', deposits: 50000, withdrawals: 0 },
+              { label: 'Jun 2026', deposits: 25000, withdrawals: 0 }
+            ],
+            recentTransactions: db.transactions.slice(-6).reverse(),
+            upcomingInstallments: db.installments.filter(i => i.Status !== 'Paid')
+          });
+          break;
+        }
+        case 'getShareholders':
+          callback(db.shareholders);
+          break;
+        case 'addShareholder': {
+          const id = `SH-${1000 + db.shareholders.length + 1}`;
+          const shares = Number(args.Number_Of_Shares) || 0;
+          const cap = shares * 1000;
+          const newSh = {
+            ...args,
+            Shareholder_ID: id,
+            Total_Deposited: cap,
+            Total_Withdrawn: 0,
+            Available_Balance: cap,
+            Total_Share_Value: cap
+          };
+          db.shareholders.push(newSh);
+          if (cap > 0) {
+            db.deposits.push({
+              Deposit_ID: `DEP-${2000 + db.deposits.length + 1}`,
+              Shareholder_ID: id,
+              Shareholder_Name: args.Full_Name,
+              Amount: cap,
+              Deposit_Date: args.Joining_Date,
+              Reference_No: 'INITIAL-SHARE',
+              Notes: 'Initial share subscription'
+            });
+            db.transactions.push({
+              Transaction_ID: `TXN-${5000 + db.transactions.length + 1}`,
+              Date: args.Joining_Date,
+              Type: 'DEPOSIT',
+              Category: 'Share Capital',
+              Entity_Type: 'Shareholder',
+              Entity_ID: id,
+              Entity_Name: args.Full_Name,
+              Amount: cap,
+              Direction: 'IN',
+              Reference_No: 'INITIAL-SHARE',
+              Notes: 'Initial share subscription'
+            });
+          }
+          callback({ success: true, id });
+          break;
+        }
+        case 'updateShareholder': {
+          const idx = db.shareholders.findIndex(s => s.Shareholder_ID === args.Shareholder_ID);
+          if (idx !== -1) {
+            db.shareholders[idx] = { ...db.shareholders[idx], ...args };
+          }
+          callback({ success: true });
+          break;
+        }
+        case 'getShareholderDetails': {
+          const p = db.shareholders.find(s => s.Shareholder_ID === args);
+          const deps = db.deposits.filter(d => d.Shareholder_ID === args);
+          const wths = db.withdrawals.filter(w => w.Shareholder_ID === args);
+          callback({ profile: p, deposits: deps, withdrawals: wths });
+          break;
+        }
+        case 'getDeposits':
+          callback(db.deposits);
+          break;
+        case 'addDeposit': {
+          const sh = db.shareholders.find(s => s.Shareholder_ID === args.Shareholder_ID);
+          const amt = Number(args.Amount);
+          sh.Total_Deposited = (Number(sh.Total_Deposited) || 0) + amt;
+          sh.Available_Balance = sh.Total_Deposited - (Number(sh.Total_Withdrawn) || 0);
+          sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+          sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+
+          const depId = `DEP-${2000 + db.deposits.length + 1}`;
+          db.deposits.push({ ...args, Deposit_ID: depId, Shareholder_Name: sh.Full_Name });
+          db.transactions.push({
+            Transaction_ID: `TXN-${5000 + db.transactions.length + 1}`,
+            Date: args.Deposit_Date,
+            Type: 'DEPOSIT',
+            Category: 'Shareholder Deposit',
+            Entity_Type: 'Shareholder',
+            Entity_ID: sh.Shareholder_ID,
+            Entity_Name: sh.Full_Name,
+            Amount: amt,
+            Direction: 'IN',
+            Reference_No: args.Reference_No,
+            Notes: args.Notes
+          });
+          callback({ success: true, message: `Deposit of ৳ ${amt.toLocaleString()} recorded!` });
+          break;
+        }
+        case 'getWithdrawals':
+          callback(db.withdrawals);
+          break;
+        case 'addWithdrawal': {
+          const sh = db.shareholders.find(s => s.Shareholder_ID === args.Shareholder_ID);
+          const amt = Number(args.Amount);
+          sh.Total_Withdrawn = (Number(sh.Total_Withdrawn) || 0) + amt;
+          sh.Available_Balance = (Number(sh.Total_Deposited) || 0) - sh.Total_Withdrawn;
+          sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+          sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+
+          const wthId = `WTH-${3000 + db.withdrawals.length + 1}`;
+          db.withdrawals.push({ ...args, Withdrawal_ID: wthId, Shareholder_Name: sh.Full_Name });
+          db.transactions.push({
+            Transaction_ID: `TXN-${5000 + db.transactions.length + 1}`,
+            Date: args.Withdrawal_Date,
+            Type: 'WITHDRAWAL',
+            Category: 'Shareholder Withdrawal',
+            Entity_Type: 'Shareholder',
+            Entity_ID: sh.Shareholder_ID,
+            Entity_Name: sh.Full_Name,
+            Amount: amt,
+            Direction: 'OUT',
+            Reference_No: args.Reference_No,
+            Notes: args.Notes
+          });
+          callback({ success: true, message: `Withdrawal of ৳ ${amt.toLocaleString()} processed!` });
+          break;
+        }
+        case 'getBorrowers':
+          callback(db.borrowers);
+          break;
+        case 'addBorrower': {
+          const id = `BR-${1000 + db.borrowers.length + 1}`;
+          db.borrowers.push({ ...args, Borrower_ID: id });
+          callback({ success: true, id });
+          break;
+        }
+        case 'updateBorrower': {
+          const idx = db.borrowers.findIndex(b => b.Borrower_ID === args.Borrower_ID);
+          if (idx !== -1) {
+            db.borrowers[idx] = { ...db.borrowers[idx], ...args };
+          }
+          callback({ success: true });
+          break;
+        }
+        case 'getLoans':
+          callback(db.loans);
+          break;
+        case 'addLoan': {
+          const id = `LN-${4000 + db.loans.length + 1}`;
+          const amt = Number(args.Loan_Amount);
+          const dur = parseInt(args.Duration_Months, 10);
+          const reg = Math.floor(amt / dur);
+          const finalInst = amt - (reg * (dur - 1));
+
+          const newLoan = {
+            ...args,
+            Loan_ID: id,
+            Monthly_Installment: reg,
+            Total_Paid: 0,
+            Remaining_Amount: amt,
+            Loan_Status: 'Active'
+          };
+          db.loans.push(newLoan);
+
+          // Schedules
+          const start = new Date(args.First_Installment_Date);
+          for (let i = 1; i <= dur; i++) {
+            const instId = `${id}-INS-${String(i).padStart(2, '0')}`;
+            const d = new Date(start.getFullYear(), start.getMonth() + (i - 1), start.getDate());
+            const dueAmt = (i === dur) ? finalInst : reg;
+            db.installments.push({
+              Installment_ID: instId,
+              Loan_ID: id,
+              Borrower_ID: args.Borrower_ID,
+              Borrower_Name: args.Borrower_Name,
+              Installment_Number: i,
+              Due_Date: getLocalDateString(d),
+              Due_Amount: dueAmt,
+              Paid_Amount: 0,
+              Balance_Due: dueAmt,
+              Status: 'Pending'
+            });
+          }
+
+          db.transactions.push({
+            Transaction_ID: `TXN-${5000 + db.transactions.length + 1}`,
+            Date: args.Loan_Date,
+            Type: 'LOAN_DISBURSEMENT',
+            Category: '0% Interest Loan',
+            Entity_Type: args.Borrower_Type,
+            Entity_ID: args.Borrower_ID,
+            Entity_Name: args.Borrower_Name,
+            Amount: amt,
+            Direction: 'OUT',
+            Reference_No: id,
+            Notes: `Disbursed 0% loan for ${dur} months`
+          });
+
+          callback({ success: true, message: `Loan ${id} created for ৳ ${amt.toLocaleString()}!` });
+          break;
+        }
+        case 'getLoanDetails': {
+          const ln = db.loans.find(l => l.Loan_ID === args);
+          const insts = db.installments.filter(i => i.Loan_ID === args);
+          const pays = db.payments.filter(p => p.Loan_ID === args);
+          callback({ loan: ln, installments: insts, payments: pays });
+          break;
+        }
+        case 'getInstallments':
+          callback(db.installments);
+          break;
+        case 'recordInstallmentPayment': {
+          const ins = db.installments.find(i => i.Installment_ID === args.Installment_ID);
+          const amt = Number(args.Amount_Paid);
+          ins.Paid_Amount = (Number(ins.Paid_Amount) || 0) + amt;
+          ins.Balance_Due = Math.max(0, Number(ins.Due_Amount) - ins.Paid_Amount);
+          ins.Status = (ins.Balance_Due === 0) ? 'Paid' : 'Partially Paid';
+
+          const ln = db.loans.find(l => l.Loan_ID === ins.Loan_ID);
+          ln.Total_Paid = (Number(ln.Total_Paid) || 0) + amt;
+          ln.Remaining_Amount = Math.max(0, Number(ln.Loan_Amount) - ln.Total_Paid);
+          if (ln.Remaining_Amount === 0) ln.Loan_Status = 'Completed';
+
+          const payId = `PAY-${6000 + db.payments.length + 1}`;
+          db.payments.push({
+            Payment_ID: payId,
+            Loan_ID: ln.Loan_ID,
+            Borrower_ID: ln.Borrower_ID,
+            Borrower_Name: ln.Borrower_Name,
+            Installment_ID: ins.Installment_ID,
+            Amount_Paid: amt,
+            Payment_Date: args.Payment_Date,
+            Reference_No: args.Reference_No,
+            Notes: args.Notes
+          });
+
+          db.transactions.push({
+            Transaction_ID: `TXN-${5000 + db.transactions.length + 1}`,
+            Date: args.Payment_Date,
+            Type: 'LOAN_REPAYMENT',
+            Category: 'Installment Collection',
+            Entity_Type: ln.Borrower_Type,
+            Entity_ID: ln.Borrower_ID,
+            Entity_Name: ln.Borrower_Name,
+            Amount: amt,
+            Direction: 'IN',
+            Reference_No: args.Reference_No || payId,
+            Notes: `Payment for installment #${ins.Installment_Number}`
+          });
+
+          callback({ success: true, message: `Payment of ৳ ${amt.toLocaleString()} recorded!` });
+          break;
+        }
+        case 'getTransactions':
+          callback(db.transactions.slice().reverse());
+          break;
+        case 'getReportData': {
+          const type = (typeof args === 'object' && args !== null) ? args.type : args;
+          const dFrom = (typeof args === 'object' && args !== null) ? args.dateFrom : null;
+          const dTo = (typeof args === 'object' && args !== null) ? args.dateTo : null;
+
+          if (type === 'financial_summary') {
+            let txns = db.transactions;
+            if (dFrom) txns = txns.filter(t => t.Date >= dFrom);
+            if (dTo) txns = txns.filter(t => t.Date <= dTo);
+
+            const inTotal = txns.filter(t => t.Direction === 'IN').reduce((s, x) => s + Number(x.Amount), 0);
+            const outTotal = txns.filter(t => t.Direction === 'OUT').reduce((s, x) => s + Number(x.Amount), 0);
+            callback({
+              totalInflow: inTotal,
+              totalOutflow: outTotal,
+              netLiquidity: inTotal - outTotal,
+              breakdown: {
+                deposits: txns.filter(t => t.Type === 'DEPOSIT').reduce((s, x) => s + Number(x.Amount), 0),
+                repayments: txns.filter(t => t.Type === 'LOAN_REPAYMENT').reduce((s, x) => s + Number(x.Amount), 0),
+                withdrawals: txns.filter(t => t.Type === 'WITHDRAWAL').reduce((s, x) => s + Number(x.Amount), 0),
+                disbursements: txns.filter(t => t.Type === 'LOAN_DISBURSEMENT').reduce((s, x) => s + Number(x.Amount), 0)
+              },
+              transactionCount: txns.length
+            });
+          } else if (type === 'shareholders') {
+            callback(db.shareholders);
+          } else if (type === 'deposits') {
+            let res = db.deposits;
+            if (dFrom) res = res.filter(d => d.Deposit_Date >= dFrom);
+            if (dTo) res = res.filter(d => d.Deposit_Date <= dTo);
+            callback(res);
+          } else if (type === 'withdrawals') {
+            let res = db.withdrawals;
+            if (dFrom) res = res.filter(w => w.Withdrawal_Date >= dFrom);
+            if (dTo) res = res.filter(w => w.Withdrawal_Date <= dTo);
+            callback(res);
+          } else if (type === 'loans') {
+            let res = db.loans;
+            if (dFrom) res = res.filter(l => l.Loan_Date >= dFrom);
+            if (dTo) res = res.filter(l => l.Loan_Date <= dTo);
+            callback(res);
+          } else if (type === 'borrowers') {
+            const enriched = db.borrowers.map(b => {
+              const bLoans = db.loans.filter(l => l.Borrower_ID === b.Borrower_ID);
+              const totalBorrowed = bLoans.reduce((sum, l) => sum + (Number(l.Loan_Amount) || 0), 0);
+              const totalRepaid = bLoans.reduce((sum, l) => sum + (Number(l.Total_Paid) || 0), 0);
+              return {
+                ...b,
+                Total_Loans: bLoans.length,
+                Total_Borrowed: totalBorrowed,
+                Total_Repaid: totalRepaid,
+                Current_Exposure: totalBorrowed - totalRepaid
+              };
+            });
+            callback(enriched);
+          } else if (type === 'installments') {
+            let res = db.installments;
+            if (dFrom) res = res.filter(i => i.Due_Date >= dFrom);
+            if (dTo) res = res.filter(i => i.Due_Date <= dTo);
+            callback(res);
+          } else if (type === 'outstanding') {
+            callback(db.loans.filter(l => Number(l.Remaining_Amount) > 0));
+          } else {
+            callback([]);
+          }
+          break;
+        }
+        case 'getSettings':
+          callback(state.data.settings);
+          break;
+        case 'updateSettings':
+          state.data.settings = { ...state.data.settings, ...args };
+          callback({ success: true });
+          break;
+        case 'initializeDatabase':
+          callback({ success: true, message: 'Google Sheets tables checked and validated.' });
+          break;
+        case 'seedDemoData':
+          callback({ success: true, message: 'Demo data refreshed!' });
+          break;
+        default:
+          callback({ success: true });
+      }
+    }, 100);
+  }
+</script>
