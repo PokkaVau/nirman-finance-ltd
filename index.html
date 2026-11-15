@@ -2304,6 +2304,36 @@
                   </div>
                 </div>
 
+                <!-- Cloud Hosting & Live API Configuration (Vercel / GAS) -->
+                <div class="bezel-card" style="grid-column: 1 / -1;">
+                  <div class="bezel-inner">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+                      <div>
+                        <h3 style="font-size:1rem; color:var(--navy-primary); font-weight:800; margin-bottom:0.25rem;">Cloud Hosting & Live Google Sheets Integration</h3>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin:0;">Configure Google Apps Script Web App URL when hosting frontend on Vercel or custom domain.</p>
+                      </div>
+                      <span id="cloudConnectionBadge" class="badge-status badge-warning">Standalone / Offline Mock Database</span>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label>Google Apps Script Web App URL (REST Endpoint)</label>
+                      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <input type="url" class="form-control" id="settingGasApiUrl" style="flex:1; min-width:280px;" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+                        <button class="btn-island btn-island-primary" onclick="saveGasApiUrl()" style="padding:0.6rem 1.25rem;">
+                          <span>Save API URL</span>
+                        </button>
+                        <button class="btn-action-sm" onclick="testGasApiUrl()" style="padding:0.6rem 1rem;">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                          <span>Test Ping</span>
+                        </button>
+                      </div>
+                      <span class="helper-text" style="margin-top:0.5rem;">
+                        <strong>Deployment instructions:</strong> In Google Apps Script, click <em>Deploy &gt; New deployment &gt; Select type: Web app</em> &rarr; Set <em>Execute as: Me</em> &rarr; Set <em>Who has access: Anyone</em> &rarr; Copy the Web App URL and paste it here.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
             </div>
