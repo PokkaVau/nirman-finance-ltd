@@ -1799,6 +1799,37 @@
                 </button>
               </div>
 
+              <!-- Quick Deposit Bar (One-click rapid entry) -->
+              <div class="bezel-card" style="margin-bottom:1.25rem; background:var(--blue-light); border:1px solid #d4e3f2;">
+                <div class="bezel-inner" style="padding:0.75rem 1rem;">
+                  <form id="quickDepositForm" onsubmit="handleQuickDepositSubmit(event)" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:180px;">
+                      <label style="font-size:0.75rem; font-weight:700; color:var(--navy-primary); display:block; margin-bottom:0.25rem;">Quick Deposit: Shareholder *</label>
+                      <select class="form-control" id="quickDepShareholder" required style="padding:0.5rem 0.6rem; font-size:0.85rem; height:38px;">
+                        <option value="">-- Choose Shareholder --</option>
+                      </select>
+                    </div>
+                    <div style="width:140px;">
+                      <label style="font-size:0.75rem; font-weight:700; color:var(--navy-primary); display:block; margin-bottom:0.25rem;">Amount (৳) *</label>
+                      <input type="number" class="form-control" id="quickDepAmount" min="100" step="1" required placeholder="৳ Amount" style="padding:0.5rem 0.6rem; font-size:0.85rem; height:38px;">
+                    </div>
+                    <div style="width:140px;">
+                      <label style="font-size:0.75rem; font-weight:700; color:var(--navy-primary); display:block; margin-bottom:0.25rem;">Date *</label>
+                      <input type="date" class="form-control" id="quickDepDate" required style="padding:0.5rem 0.6rem; font-size:0.85rem; height:38px;">
+                    </div>
+                    <div style="flex:1; min-width:140px;">
+                      <label style="font-size:0.75rem; font-weight:700; color:var(--navy-primary); display:block; margin-bottom:0.25rem;">Reference</label>
+                      <input type="text" class="form-control" id="quickDepRef" placeholder="Ref / Trx / Cheque #" style="padding:0.5rem 0.6rem; font-size:0.85rem; height:38px;">
+                    </div>
+                    <div>
+                      <button type="submit" class="btn-island btn-island-green" style="padding:0.5rem 1.1rem; height:38px; white-space:nowrap;">
+                        <span>+ Add Deposit</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
               <div class="toolbar-wrapper">
                 <div class="search-input-box">
                   <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1820,10 +1851,11 @@
                       <th>Deposit Date</th>
                       <th>Reference No</th>
                       <th>Notes</th>
+                      <th class="text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody id="depositsTableBody">
-                    <tr><td colspan="6" class="text-center">Loading deposit records...</td></tr>
+                    <tr><td colspan="7" class="text-center">Loading deposit records...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1872,10 +1904,11 @@
                       <th>Withdrawal Date</th>
                       <th>Reference No</th>
                       <th>Notes</th>
+                      <th class="text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody id="withdrawalsTableBody">
-                    <tr><td colspan="6" class="text-center">Loading withdrawal records...</td></tr>
+                    <tr><td colspan="7" class="text-center">Loading withdrawal records...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2401,10 +2434,11 @@
   <div class="modal-overlay" id="depositModal">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Record Shareholder Deposit</h3>
+        <h3 id="depositModalTitle">Record Shareholder Deposit</h3>
         <button class="modal-close-btn" onclick="closeModal('depositModal')">&times;</button>
       </div>
       <form id="depositForm" onsubmit="handleDepositSubmit(event)">
+        <input type="hidden" id="depEditId" value="">
         <div class="modal-body">
           <div class="form-grid">
             <div class="form-group form-full">
@@ -2433,9 +2467,14 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('depositModal')">Cancel</button>
-          <button type="submit" class="btn-island btn-island-green">Confirm Deposit</button>
+        <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <label id="depKeepOpenLabel" style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="depKeepOpen"> Keep open to add next deposit
+          </label>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('depositModal')">Cancel</button>
+            <button type="submit" class="btn-island btn-island-green" id="depSubmitBtn">Confirm Deposit</button>
+          </div>
         </div>
       </form>
     </div>
@@ -2445,10 +2484,11 @@
   <div class="modal-overlay" id="withdrawalModal">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Process Shareholder Withdrawal</h3>
+        <h3 id="withdrawalModalTitle">Process Shareholder Withdrawal</h3>
         <button class="modal-close-btn" onclick="closeModal('withdrawalModal')">&times;</button>
       </div>
       <form id="withdrawalForm" onsubmit="handleWithdrawalSubmit(event)">
+        <input type="hidden" id="wthEditId" value="">
         <div class="modal-body">
           <div class="form-grid">
             <div class="form-group form-full">
@@ -2481,7 +2521,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn-island btn-island-secondary" onclick="closeModal('withdrawalModal')">Cancel</button>
-          <button type="submit" class="btn-island btn-island-primary">Approve & Disburse</button>
+          <button type="submit" class="btn-island btn-island-primary" id="wthSubmitBtn">Approve & Disburse</button>
         </div>
       </form>
     </div>
@@ -2790,7 +2830,7 @@
     if (el) el.textContent = todayStr;
 
     const todayIso = getLocalDateString();
-    ['shFormJoinDate', 'depDate', 'wthDate', 'brFormDate', 'loanDate', 'loanFirstInstDate', 'payDate'].forEach(id => {
+    ['shFormJoinDate', 'depDate', 'quickDepDate', 'wthDate', 'brFormDate', 'loanDate', 'loanFirstInstDate', 'payDate'].forEach(id => {
       const input = document.getElementById(id);
       if (input && !input.value) input.value = todayIso;
     });
@@ -3485,7 +3525,7 @@
     const data = list || state.data.deposits;
 
     if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">No deposits recorded</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:2rem; color:var(--text-muted);">No deposits recorded</td></tr>';
       return;
     }
 
@@ -3497,6 +3537,12 @@
       <td>${formatDate(d.Deposit_Date)}</td>
       <td><span style="font-family:monospace;">${d.Reference_No || '-'}</span></td>
       <td>${d.Notes || '-'}</td>
+      <td class="text-right">
+        <button class="btn-action-sm" onclick="openEditDepositModal('${d.Deposit_ID}')" title="Edit Deposit">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span>Edit</span>
+        </button>
+      </td>
     </tr>
   `).join('');
   }
@@ -3519,9 +3565,45 @@
 
   function openDepositModal() {
     document.getElementById('depositForm').reset();
+    const editIdInput = document.getElementById('depEditId');
+    if (editIdInput) editIdInput.value = '';
+    const titleEl = document.getElementById('depositModalTitle');
+    if (titleEl) titleEl.textContent = 'Record Shareholder Deposit';
+    const subBtn = document.getElementById('depSubmitBtn');
+    if (subBtn) subBtn.textContent = 'Confirm Deposit';
+    const keepLabel = document.getElementById('depKeepOpenLabel');
+    if (keepLabel) keepLabel.style.display = 'flex';
+
     const todayIso = getLocalDateString();
     document.getElementById('depDate').value = todayIso;
     populateShareholderDropdowns();
+    updateDepShareholderInfo();
+    openModal('depositModal');
+  }
+
+  function openEditDepositModal(depId) {
+    const d = state.data.deposits.find(item => item.Deposit_ID === depId);
+    if (!d) {
+      showToast('Deposit record not found', 'error');
+      return;
+    }
+    document.getElementById('depositForm').reset();
+    const editIdInput = document.getElementById('depEditId');
+    if (editIdInput) editIdInput.value = depId;
+    const titleEl = document.getElementById('depositModalTitle');
+    if (titleEl) titleEl.textContent = `Edit Deposit (${depId})`;
+    const subBtn = document.getElementById('depSubmitBtn');
+    if (subBtn) subBtn.textContent = 'Update Deposit';
+    const keepLabel = document.getElementById('depKeepOpenLabel');
+    if (keepLabel) keepLabel.style.display = 'none';
+
+    populateShareholderDropdowns();
+    document.getElementById('depShareholderSelect').value = d.Shareholder_ID;
+    document.getElementById('depAmount').value = d.Amount;
+    document.getElementById('depDate').value = d.Deposit_Date ? String(d.Deposit_Date).split('T')[0] : getLocalDateString();
+    document.getElementById('depRef').value = d.Reference_No || '';
+    document.getElementById('depNotes').value = d.Notes || '';
+
     updateDepShareholderInfo();
     openModal('depositModal');
   }
@@ -3557,7 +3639,9 @@
       return;
     }
 
+    const editId = document.getElementById('depEditId') ? document.getElementById('depEditId').value : '';
     const payload = {
+      Deposit_ID: editId || undefined,
       Shareholder_ID: shId,
       Amount: amt,
       Deposit_Date: document.getElementById('depDate').value || getLocalDateString(),
@@ -3565,9 +3649,54 @@
       Notes: document.getElementById('depNotes').value.trim()
     };
 
+    const action = editId ? 'updateDeposit' : 'addDeposit';
+    callBackend(action, payload, res => {
+      const keepOpen = !editId && document.getElementById('depKeepOpen') && document.getElementById('depKeepOpen').checked;
+      if (keepOpen) {
+        showToast(res.message || `Deposit of ৳ ${amt.toLocaleString()} recorded!`);
+        document.getElementById('depAmount').value = '';
+        document.getElementById('depRef').value = '';
+        document.getElementById('depNotes').value = '';
+        document.getElementById('depAmount').focus();
+        updateDepShareholderInfo();
+        loadAllApplicationData();
+      } else {
+        closeModal('depositModal');
+        showToast(res.message || (editId ? 'Deposit updated successfully!' : 'Deposit processed successfully!'));
+        loadAllApplicationData();
+      }
+    });
+  }
+
+  function handleQuickDepositSubmit(e) {
+    e.preventDefault();
+    const shId = document.getElementById('quickDepShareholder').value;
+    const amt = Number(document.getElementById('quickDepAmount').value);
+    const date = document.getElementById('quickDepDate').value || getLocalDateString();
+    const ref = document.getElementById('quickDepRef').value.trim();
+
+    if (!shId) {
+      showToast('Please select a shareholder', 'error');
+      return;
+    }
+    if (!amt || amt <= 0) {
+      showToast('Please enter a valid deposit amount', 'error');
+      return;
+    }
+
+    const payload = {
+      Shareholder_ID: shId,
+      Amount: amt,
+      Deposit_Date: date,
+      Reference_No: ref,
+      Notes: 'Quick deposit'
+    };
+
     callBackend('addDeposit', payload, res => {
-      closeModal('depositModal');
-      showToast(res.message || 'Deposit processed successfully!');
+      showToast(res.message || `Quick Deposit: ৳ ${amt.toLocaleString()} recorded!`);
+      document.getElementById('quickDepAmount').value = '';
+      document.getElementById('quickDepRef').value = '';
+      document.getElementById('quickDepAmount').focus();
       loadAllApplicationData();
     });
   }
@@ -3584,7 +3713,7 @@
     const data = list || state.data.withdrawals;
 
     if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">No withdrawals recorded</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:2rem; color:var(--text-muted);">No withdrawals recorded</td></tr>';
       return;
     }
 
@@ -3596,6 +3725,12 @@
       <td>${formatDate(w.Withdrawal_Date)}</td>
       <td><span style="font-family:monospace;">${w.Reference_No || '-'}</span></td>
       <td>${w.Notes || '-'}</td>
+      <td class="text-right">
+        <button class="btn-action-sm" onclick="openEditWithdrawalModal('${w.Withdrawal_ID}')" title="Edit Withdrawal">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span>Edit</span>
+        </button>
+      </td>
     </tr>
   `).join('');
   }
@@ -3618,9 +3753,41 @@
 
   function openWithdrawalModal() {
     document.getElementById('withdrawalForm').reset();
+    const editIdInput = document.getElementById('wthEditId');
+    if (editIdInput) editIdInput.value = '';
+    const titleEl = document.getElementById('withdrawalModalTitle');
+    if (titleEl) titleEl.textContent = 'Process Shareholder Withdrawal';
+    const subBtn = document.getElementById('wthSubmitBtn');
+    if (subBtn) subBtn.textContent = 'Process Withdrawal';
+
     const todayIso = getLocalDateString();
     document.getElementById('wthDate').value = todayIso;
     populateShareholderDropdowns();
+    updateWthShareholderInfo();
+    openModal('withdrawalModal');
+  }
+
+  function openEditWithdrawalModal(wthId) {
+    const w = state.data.withdrawals.find(item => item.Withdrawal_ID === wthId);
+    if (!w) {
+      showToast('Withdrawal record not found', 'error');
+      return;
+    }
+    document.getElementById('withdrawalForm').reset();
+    const editIdInput = document.getElementById('wthEditId');
+    if (editIdInput) editIdInput.value = wthId;
+    const titleEl = document.getElementById('withdrawalModalTitle');
+    if (titleEl) titleEl.textContent = `Edit Withdrawal (${wthId})`;
+    const subBtn = document.getElementById('wthSubmitBtn');
+    if (subBtn) subBtn.textContent = 'Update Withdrawal';
+
+    populateShareholderDropdowns();
+    document.getElementById('wthShareholderSelect').value = w.Shareholder_ID;
+    document.getElementById('wthAmount').value = w.Amount;
+    document.getElementById('wthDate').value = w.Withdrawal_Date ? String(w.Withdrawal_Date).split('T')[0] : getLocalDateString();
+    document.getElementById('wthRef').value = w.Reference_No || '';
+    document.getElementById('wthNotes').value = w.Notes || '';
+
     updateWthShareholderInfo();
     openModal('withdrawalModal');
   }
@@ -3630,10 +3797,17 @@
     const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
     const infoEl = document.getElementById('wthAvailableBalanceInfo');
     const amtInput = document.getElementById('wthAmount');
+    const editId = document.getElementById('wthEditId') ? document.getElementById('wthEditId').value : '';
 
     if (sh) {
-      const avail = Number(sh.Available_Balance) || 0;
-      infoEl.textContent = `Available for withdrawal: ৳ ${avail.toLocaleString()} (${sh.Number_Of_Shares} shares)`;
+      let avail = Number(sh.Available_Balance) || 0;
+      if (editId) {
+        const oldWth = state.data.withdrawals.find(w => w.Withdrawal_ID === editId);
+        if (oldWth && oldWth.Shareholder_ID === shId) {
+          avail += Number(oldWth.Amount) || 0;
+        }
+      }
+      infoEl.textContent = `Available for withdrawal: ৳ ${avail.toLocaleString()} (${Math.floor(avail / 1000)} shares)`;
       amtInput.max = avail;
     } else {
       infoEl.textContent = 'Available for withdrawal: ৳ 0';
@@ -3645,6 +3819,7 @@
     const shId = document.getElementById('wthShareholderSelect').value;
     const sh = state.data.shareholders.find(s => s.Shareholder_ID === shId);
     const amt = Number(document.getElementById('wthAmount').value);
+    const editId = document.getElementById('wthEditId') ? document.getElementById('wthEditId').value : '';
 
     if (!sh) {
       showToast('Please choose a valid shareholder', 'error');
@@ -3656,13 +3831,21 @@
       return;
     }
 
-    const avail = Number(sh.Available_Balance) || 0;
-    if (amt > avail) {
-      showToast(`Withdrawal amount (৳ ${amt.toLocaleString()}) cannot exceed shareholder available balance (৳ ${avail.toLocaleString()})!`, 'error');
+    let maxAllowed = Number(sh.Available_Balance) || 0;
+    if (editId) {
+      const oldWth = state.data.withdrawals.find(w => w.Withdrawal_ID === editId);
+      if (oldWth && oldWth.Shareholder_ID === shId) {
+        maxAllowed += Number(oldWth.Amount) || 0;
+      }
+    }
+
+    if (amt > maxAllowed) {
+      showToast(`Withdrawal amount (৳ ${amt.toLocaleString()}) cannot exceed shareholder available balance (৳ ${maxAllowed.toLocaleString()})!`, 'error');
       return;
     }
 
     const payload = {
+      Withdrawal_ID: editId || undefined,
       Shareholder_ID: shId,
       Amount: amt,
       Withdrawal_Date: document.getElementById('wthDate').value || getLocalDateString(),
@@ -3670,9 +3853,10 @@
       Notes: document.getElementById('wthNotes').value.trim()
     };
 
-    callBackend('addWithdrawal', payload, res => {
+    const action = editId ? 'updateWithdrawal' : 'addWithdrawal';
+    callBackend(action, payload, res => {
       closeModal('withdrawalModal');
-      showToast(res.message || 'Withdrawal processed successfully!');
+      showToast(res.message || (editId ? 'Withdrawal updated successfully!' : 'Withdrawal processed successfully!'));
       loadAllApplicationData();
     });
   }
@@ -4500,6 +4684,7 @@
   function populateShareholderDropdowns() {
     const depSelect = document.getElementById('depShareholderSelect');
     const wthSelect = document.getElementById('wthShareholderSelect');
+    const quickDepSelect = document.getElementById('quickDepShareholder');
 
     const options = '<option value="">-- Choose Shareholder --</option>' +
       state.data.shareholders.map(s => `
@@ -4508,6 +4693,7 @@
 
     if (depSelect) depSelect.innerHTML = options;
     if (wthSelect) wthSelect.innerHTML = options;
+    if (quickDepSelect) quickDepSelect.innerHTML = options;
   }
 
   /**
@@ -4958,6 +5144,50 @@
           callback({ success: true, message: `Deposit of ৳ ${amt.toLocaleString()} recorded!` });
           break;
         }
+        case 'updateDeposit': {
+          const idx = db.deposits.findIndex(d => d.Deposit_ID === args.Deposit_ID);
+          if (idx !== -1) {
+            const oldDep = db.deposits[idx];
+            const oldAmt = Number(oldDep.Amount) || 0;
+            const newAmt = Number(args.Amount) || 0;
+            const sh = db.shareholders.find(s => s.Shareholder_ID === args.Shareholder_ID);
+
+            if (oldDep.Shareholder_ID === args.Shareholder_ID) {
+              const diff = newAmt - oldAmt;
+              sh.Total_Deposited = (Number(sh.Total_Deposited) || 0) + diff;
+              sh.Available_Balance = sh.Total_Deposited - (Number(sh.Total_Withdrawn) || 0);
+              sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+              sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+            } else {
+              const oldSh = db.shareholders.find(s => s.Shareholder_ID === oldDep.Shareholder_ID);
+              if (oldSh) {
+                oldSh.Total_Deposited = Math.max(0, (Number(oldSh.Total_Deposited) || 0) - oldAmt);
+                oldSh.Available_Balance = oldSh.Total_Deposited - (Number(oldSh.Total_Withdrawn) || 0);
+                oldSh.Number_Of_Shares = Math.floor(oldSh.Available_Balance / 1000);
+                oldSh.Total_Share_Value = oldSh.Number_Of_Shares * 1000;
+              }
+              if (sh) {
+                sh.Total_Deposited = (Number(sh.Total_Deposited) || 0) + newAmt;
+                sh.Available_Balance = sh.Total_Deposited - (Number(sh.Total_Withdrawn) || 0);
+                sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+                sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+              }
+            }
+
+            db.deposits[idx] = { ...oldDep, ...args, Shareholder_Name: sh ? sh.Full_Name : oldDep.Shareholder_Name };
+
+            const txn = db.transactions.find(t => t.Type === 'DEPOSIT' && (t.Reference_No === oldDep.Reference_No || t.Reference_No === args.Deposit_ID || (t.Entity_ID === oldDep.Shareholder_ID && Math.abs(Number(t.Amount) - oldAmt) < 0.01)));
+            if (txn) {
+              txn.Date = args.Deposit_Date;
+              txn.Amount = newAmt;
+              txn.Reference_No = args.Reference_No;
+              txn.Notes = args.Notes;
+              if (sh) { txn.Entity_ID = sh.Shareholder_ID; txn.Entity_Name = sh.Full_Name; }
+            }
+          }
+          callback({ success: true, message: `Deposit ${args.Deposit_ID} updated!` });
+          break;
+        }
         case 'getWithdrawals':
           callback(db.withdrawals);
           break;
@@ -4985,6 +5215,50 @@
             Notes: args.Notes
           });
           callback({ success: true, message: `Withdrawal of ৳ ${amt.toLocaleString()} processed!` });
+          break;
+        }
+        case 'updateWithdrawal': {
+          const idx = db.withdrawals.findIndex(w => w.Withdrawal_ID === args.Withdrawal_ID);
+          if (idx !== -1) {
+            const oldWth = db.withdrawals[idx];
+            const oldAmt = Number(oldWth.Amount) || 0;
+            const newAmt = Number(args.Amount) || 0;
+            const sh = db.shareholders.find(s => s.Shareholder_ID === args.Shareholder_ID);
+
+            if (oldWth.Shareholder_ID === args.Shareholder_ID) {
+              const diff = newAmt - oldAmt;
+              sh.Total_Withdrawn = (Number(sh.Total_Withdrawn) || 0) + diff;
+              sh.Available_Balance = (Number(sh.Total_Deposited) || 0) - sh.Total_Withdrawn;
+              sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+              sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+            } else {
+              const oldSh = db.shareholders.find(s => s.Shareholder_ID === oldWth.Shareholder_ID);
+              if (oldSh) {
+                oldSh.Total_Withdrawn = Math.max(0, (Number(oldSh.Total_Withdrawn) || 0) - oldAmt);
+                oldSh.Available_Balance = (Number(oldSh.Total_Deposited) || 0) - oldSh.Total_Withdrawn;
+                oldSh.Number_Of_Shares = Math.floor(oldSh.Available_Balance / 1000);
+                oldSh.Total_Share_Value = oldSh.Number_Of_Shares * 1000;
+              }
+              if (sh) {
+                sh.Total_Withdrawn = (Number(sh.Total_Withdrawn) || 0) + newAmt;
+                sh.Available_Balance = (Number(sh.Total_Deposited) || 0) - sh.Total_Withdrawn;
+                sh.Number_Of_Shares = Math.floor(sh.Available_Balance / 1000);
+                sh.Total_Share_Value = sh.Number_Of_Shares * 1000;
+              }
+            }
+
+            db.withdrawals[idx] = { ...oldWth, ...args, Shareholder_Name: sh ? sh.Full_Name : oldWth.Shareholder_Name };
+
+            const txn = db.transactions.find(t => t.Type === 'WITHDRAWAL' && (t.Reference_No === oldWth.Reference_No || t.Reference_No === args.Withdrawal_ID || (t.Entity_ID === oldWth.Shareholder_ID && Math.abs(Number(t.Amount) - oldAmt) < 0.01)));
+            if (txn) {
+              txn.Date = args.Withdrawal_Date;
+              txn.Amount = newAmt;
+              txn.Reference_No = args.Reference_No;
+              txn.Notes = args.Notes;
+              if (sh) { txn.Entity_ID = sh.Shareholder_ID; txn.Entity_Name = sh.Full_Name; }
+            }
+          }
+          callback({ success: true, message: `Withdrawal ${args.Withdrawal_ID} updated!` });
           break;
         }
         case 'getBorrowers':

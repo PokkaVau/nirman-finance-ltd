@@ -101,11 +101,17 @@ function doPost(e) {
       case 'addDeposit':
         responseObj = addDeposit(data);
         break;
+      case 'updateDeposit':
+        responseObj = updateDeposit(data);
+        break;
       case 'getWithdrawals':
         responseObj = getWithdrawals();
         break;
       case 'addWithdrawal':
         responseObj = addWithdrawal(data);
+        break;
+      case 'updateWithdrawal':
+        responseObj = updateWithdrawal(data);
         break;
       case 'getBorrowers':
         responseObj = getBorrowers();
@@ -739,6 +745,112 @@ function addDeposit(data) {
   }
 }
 
+function updateDeposit(data) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(CONFIG.LOCK_TIMEOUT_MS);
+    const depId = data.Deposit_ID;
+    const newAmount = Number(data.Amount);
+    if (!depId) {
+      return { success: false, error: 'Deposit ID is required for editing.' };
+    }
+    if (!newAmount || newAmount <= 0) {
+      return { success: false, error: 'Deposit amount must be a positive number.' };
+    }
+
+    const ss = getDB();
+    const depSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DEPOSITS);
+    const depList = sheetToJSON(depSheet);
+    const depIndex = depList.findIndex(d => d.Deposit_ID === depId);
+
+    if (depIndex === -1) {
+      return { success: false, error: 'Deposit record not found.' };
+    }
+
+    const oldDep = depList[depIndex];
+    const oldAmount = Number(oldDep.Amount) || 0;
+    const oldShId = oldDep.Shareholder_ID;
+    const newShId = data.Shareholder_ID || oldShId;
+
+    const shSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SHAREHOLDERS);
+    const shList = sheetToJSON(shSheet);
+    const newShIndex = shList.findIndex(s => s.Shareholder_ID === newShId);
+    if (newShIndex === -1) {
+      return { success: false, error: 'Target Shareholder not found.' };
+    }
+    const newSh = shList[newShIndex];
+
+    const depRowNumber = depIndex + 2;
+    const newDate = data.Deposit_Date || oldDep.Deposit_Date;
+    const newRef = (data.Reference_No !== undefined) ? data.Reference_No : oldDep.Reference_No;
+    const newNotes = (data.Notes !== undefined) ? data.Notes : oldDep.Notes;
+
+    depSheet.getRange(depRowNumber, 2).setValue(newSh.Shareholder_ID);
+    depSheet.getRange(depRowNumber, 3).setValue(newSh.Full_Name);
+    depSheet.getRange(depRowNumber, 4).setValue(newAmount);
+    depSheet.getRange(depRowNumber, 5).setValue(newDate);
+    depSheet.getRange(depRowNumber, 6).setValue(newRef);
+    depSheet.getRange(depRowNumber, 7).setValue(newNotes);
+
+    if (oldShId === newShId) {
+      const diff = newAmount - oldAmount;
+      const curDeposited = Number(newSh.Total_Deposited) || 0;
+      const curWithdrawn = Number(newSh.Total_Withdrawn) || 0;
+      const updatedDeposited = Math.max(0, curDeposited + diff);
+      const updatedBalance = updatedDeposited - curWithdrawn;
+      const updatedShares = Math.floor(updatedBalance / CONFIG.SHARE_UNIT_PRICE);
+      const updatedShareVal = updatedShares * CONFIG.SHARE_UNIT_PRICE;
+
+      const shRow = newShIndex + 2;
+      shSheet.getRange(shRow, 8).setValue(updatedDeposited);
+      shSheet.getRange(shRow, 10).setValue(updatedBalance);
+      shSheet.getRange(shRow, 11).setValue(updatedShares);
+      shSheet.getRange(shRow, 12).setValue(updatedShareVal);
+    } else {
+      const oldShIndex = shList.findIndex(s => s.Shareholder_ID === oldShId);
+      if (oldShIndex !== -1) {
+        const oldSh = shList[oldShIndex];
+        const oldDepTotal = Math.max(0, (Number(oldSh.Total_Deposited) || 0) - oldAmount);
+        const oldBal = oldDepTotal - (Number(oldSh.Total_Withdrawn) || 0);
+        const oldShares = Math.floor(oldBal / CONFIG.SHARE_UNIT_PRICE);
+        const oldRow = oldShIndex + 2;
+        shSheet.getRange(oldRow, 8).setValue(oldDepTotal);
+        shSheet.getRange(oldRow, 10).setValue(oldBal);
+        shSheet.getRange(oldRow, 11).setValue(oldShares);
+        shSheet.getRange(oldRow, 12).setValue(oldShares * CONFIG.SHARE_UNIT_PRICE);
+      }
+      const newDepTotal = (Number(newSh.Total_Deposited) || 0) + newAmount;
+      const newBal = newDepTotal - (Number(newSh.Total_Withdrawn) || 0);
+      const newShares = Math.floor(newBal / CONFIG.SHARE_UNIT_PRICE);
+      const newRow = newShIndex + 2;
+      shSheet.getRange(newRow, 8).setValue(newDepTotal);
+      shSheet.getRange(newRow, 10).setValue(newBal);
+      shSheet.getRange(newRow, 11).setValue(newShares);
+      shSheet.getRange(newRow, 12).setValue(newShares * CONFIG.SHARE_UNIT_PRICE);
+    }
+
+    const txnSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TRANSACTIONS);
+    const txnList = sheetToJSON(txnSheet);
+    const txnIdx = txnList.findIndex(t => t.Type === 'DEPOSIT' && (t.Reference_No === oldDep.Reference_No || t.Reference_No === depId || (t.Entity_ID === oldShId && Math.abs(Number(t.Amount) - oldAmount) < 0.01)));
+    if (txnIdx !== -1) {
+      const tRow = txnIdx + 2;
+      txnSheet.getRange(tRow, 2).setValue(newDate);
+      txnSheet.getRange(tRow, 6).setValue(newSh.Shareholder_ID);
+      txnSheet.getRange(tRow, 7).setValue(newSh.Full_Name);
+      txnSheet.getRange(tRow, 8).setValue(newAmount);
+      txnSheet.getRange(tRow, 10).setValue(newRef);
+      txnSheet.getRange(tRow, 11).setValue(newNotes);
+    }
+
+    logAudit('UPDATE_DEPOSIT', 'Deposits', depId, 'Admin', `Deposit ${depId} updated: ৳ ${oldAmount} -> ৳ ${newAmount}`);
+    return { success: true, message: `Deposit ${depId} updated successfully!` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /**
  * ============================================================================
  * WITHDRAWAL MANAGEMENT
@@ -820,6 +932,112 @@ function addWithdrawal(data) {
       message: `Withdrawal of ৳ ${amount.toLocaleString()} processed successfully! Remaining shares: ${newShares}.`,
       withdrawalId: wthId
     };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function updateWithdrawal(data) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(CONFIG.LOCK_TIMEOUT_MS);
+    const wthId = data.Withdrawal_ID;
+    const newAmount = Number(data.Amount);
+    if (!wthId) {
+      return { success: false, error: 'Withdrawal ID is required for editing.' };
+    }
+    if (!newAmount || newAmount <= 0) {
+      return { success: false, error: 'Withdrawal amount must be a positive number.' };
+    }
+
+    const ss = getDB();
+    const wthSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.WITHDRAWALS);
+    const wthList = sheetToJSON(wthSheet);
+    const wthIndex = wthList.findIndex(w => w.Withdrawal_ID === wthId);
+
+    if (wthIndex === -1) {
+      return { success: false, error: 'Withdrawal record not found.' };
+    }
+
+    const oldWth = wthList[wthIndex];
+    const oldAmount = Number(oldWth.Amount) || 0;
+    const oldShId = oldWth.Shareholder_ID;
+    const newShId = data.Shareholder_ID || oldShId;
+
+    const shSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SHAREHOLDERS);
+    const shList = sheetToJSON(shSheet);
+    const newShIndex = shList.findIndex(s => s.Shareholder_ID === newShId);
+    if (newShIndex === -1) {
+      return { success: false, error: 'Target Shareholder not found.' };
+    }
+    const newSh = shList[newShIndex];
+
+    const currentDeposited = Number(newSh.Total_Deposited) || 0;
+    const currentWithdrawn = Number(newSh.Total_Withdrawn) || 0;
+    const adjustedWithdrawn = (oldShId === newShId) ? (currentWithdrawn - oldAmount + newAmount) : (currentWithdrawn + newAmount);
+    if (adjustedWithdrawn > currentDeposited) {
+      return { success: false, error: `Withdrawal exceeds available balance (Available: ৳ ${(currentDeposited - (currentWithdrawn - (oldShId === newShId ? oldAmount : 0))).toLocaleString()})` };
+    }
+
+    const wthRowNumber = wthIndex + 2;
+    const newDate = data.Withdrawal_Date || oldWth.Withdrawal_Date;
+    const newRef = (data.Reference_No !== undefined) ? data.Reference_No : oldWth.Reference_No;
+    const newNotes = (data.Notes !== undefined) ? data.Notes : oldWth.Notes;
+
+    wthSheet.getRange(wthRowNumber, 2).setValue(newSh.Shareholder_ID);
+    wthSheet.getRange(wthRowNumber, 3).setValue(newSh.Full_Name);
+    wthSheet.getRange(wthRowNumber, 4).setValue(newAmount);
+    wthSheet.getRange(wthRowNumber, 5).setValue(newDate);
+    wthSheet.getRange(wthRowNumber, 6).setValue(newRef);
+    wthSheet.getRange(wthRowNumber, 7).setValue(newNotes);
+
+    if (oldShId === newShId) {
+      const newBal = currentDeposited - adjustedWithdrawn;
+      const newShares = Math.floor(newBal / CONFIG.SHARE_UNIT_PRICE);
+      const shRow = newShIndex + 2;
+      shSheet.getRange(shRow, 9).setValue(adjustedWithdrawn);
+      shSheet.getRange(shRow, 10).setValue(newBal);
+      shSheet.getRange(shRow, 11).setValue(newShares);
+      shSheet.getRange(shRow, 12).setValue(newShares * CONFIG.SHARE_UNIT_PRICE);
+    } else {
+      const oldShIndex = shList.findIndex(s => s.Shareholder_ID === oldShId);
+      if (oldShIndex !== -1) {
+        const oldSh = shList[oldShIndex];
+        const restoredWithdrawn = Math.max(0, (Number(oldSh.Total_Withdrawn) || 0) - oldAmount);
+        const restoredBal = (Number(oldSh.Total_Deposited) || 0) - restoredWithdrawn;
+        const restoredShares = Math.floor(restoredBal / CONFIG.SHARE_UNIT_PRICE);
+        const oldRow = oldShIndex + 2;
+        shSheet.getRange(oldRow, 9).setValue(restoredWithdrawn);
+        shSheet.getRange(oldRow, 10).setValue(restoredBal);
+        shSheet.getRange(oldRow, 11).setValue(restoredShares);
+        shSheet.getRange(oldRow, 12).setValue(restoredShares * CONFIG.SHARE_UNIT_PRICE);
+      }
+      const newBal = currentDeposited - adjustedWithdrawn;
+      const newShares = Math.floor(newBal / CONFIG.SHARE_UNIT_PRICE);
+      const newRow = newShIndex + 2;
+      shSheet.getRange(newRow, 9).setValue(adjustedWithdrawn);
+      shSheet.getRange(newRow, 10).setValue(newBal);
+      shSheet.getRange(newRow, 11).setValue(newShares);
+      shSheet.getRange(newRow, 12).setValue(newShares * CONFIG.SHARE_UNIT_PRICE);
+    }
+
+    const txnSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TRANSACTIONS);
+    const txnList = sheetToJSON(txnSheet);
+    const txnIdx = txnList.findIndex(t => t.Type === 'WITHDRAWAL' && (t.Reference_No === oldWth.Reference_No || t.Reference_No === wthId || (t.Entity_ID === oldShId && Math.abs(Number(t.Amount) - oldAmount) < 0.01)));
+    if (txnIdx !== -1) {
+      const tRow = txnIdx + 2;
+      txnSheet.getRange(tRow, 2).setValue(newDate);
+      txnSheet.getRange(tRow, 6).setValue(newSh.Shareholder_ID);
+      txnSheet.getRange(tRow, 7).setValue(newSh.Full_Name);
+      txnSheet.getRange(tRow, 8).setValue(newAmount);
+      txnSheet.getRange(tRow, 10).setValue(newRef);
+      txnSheet.getRange(tRow, 11).setValue(newNotes);
+    }
+
+    logAudit('UPDATE_WITHDRAWAL', 'Withdrawals', wthId, 'Admin', `Withdrawal ${wthId} updated: ৳ ${oldAmount} -> ৳ ${newAmount}`);
+    return { success: true, message: `Withdrawal ${wthId} updated successfully!` };
   } catch (err) {
     return { success: false, error: err.message };
   } finally {
