@@ -1555,20 +1555,20 @@
               </div>
             </div>
 
-            <!-- 5. Available Balance -->
+            <!-- 5. Net Liquidity -->
             <div class="bezel-card">
               <div class="bezel-inner metric-card-inner">
                 <div class="metric-top">
                   <div>
-                    <div class="eyebrow eyebrow-green">Net Liquidity</div>
-                    <div class="metric-title">Available Balance</div>
+                    <div class="eyebrow eyebrow-green">Cash in Hand / Bank</div>
+                    <div class="metric-title">Net Liquidity</div>
                   </div>
                   <div class="metric-icon-wrap metric-icon-green">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                   </div>
                 </div>
                 <div class="metric-value metric-value-green tnum" id="metricAvailableBalance">৳ 0</div>
-                <div class="metric-sub">Deposits minus withdrawals</div>
+                <div class="metric-sub">Inflow minus Outflow (Available Cash)</div>
               </div>
             </div>
 
@@ -3140,7 +3140,7 @@
     document.getElementById('metricShareCapital').textContent = formatBDT((m.totalShares || 0) * 1000);
     document.getElementById('metricTotalDeposits').textContent = formatBDT(m.totalDeposits || 0);
     document.getElementById('metricTotalWithdrawals').textContent = formatBDT(m.totalWithdrawals || 0);
-    document.getElementById('metricAvailableBalance').textContent = formatBDT(m.totalAvailableBalance || 0);
+    document.getElementById('metricAvailableBalance').textContent = formatBDT(m.netLiquidity !== undefined ? m.netLiquidity : (m.totalAvailableBalance || 0));
     document.getElementById('metricActiveLoans').textContent = (m.totalActiveLoans || 0).toLocaleString();
     document.getElementById('metricTotalLoanAmount').textContent = formatBDT(m.totalLoanAmount || 0);
     document.getElementById('metricOutstandingLoans').textContent = formatBDT(m.totalOutstandingLoanAmount || 0);
@@ -4964,11 +4964,11 @@
             Address: 'House 42, Road 11, Banani, Dhaka',
             NID_Number: '19822694580001234',
             Joining_Date: '2026-01-10',
-            Total_Deposited: 150000,
+            Total_Deposited: 500000,
             Total_Withdrawn: 0,
-            Available_Balance: 150000,
-            Number_Of_Shares: 150,
-            Total_Share_Value: 150000,
+            Available_Balance: 500000,
+            Number_Of_Shares: 500,
+            Total_Share_Value: 500000,
             Status: 'Active',
             Notes: 'Founding member and director'
           },
@@ -4980,11 +4980,11 @@
             Address: 'Flat 4B, Concord Tower, Dhanmondi, Dhaka',
             NID_Number: '19792694580005678',
             Joining_Date: '2026-02-01',
-            Total_Deposited: 200000,
+            Total_Deposited: 500000,
             Total_Withdrawn: 20000,
-            Available_Balance: 180000,
-            Number_Of_Shares: 180,
-            Total_Share_Value: 180000,
+            Available_Balance: 480000,
+            Number_Of_Shares: 480,
+            Total_Share_Value: 480000,
             Status: 'Active',
             Notes: 'Senior investor'
           },
@@ -4996,11 +4996,11 @@
             Address: 'Plot 15, Sector 4, Uttara, Dhaka',
             NID_Number: '19882694580009988',
             Joining_Date: '2026-03-15',
-            Total_Deposited: 100000,
+            Total_Deposited: 500000,
             Total_Withdrawn: 0,
-            Available_Balance: 100000,
-            Number_Of_Shares: 100,
-            Total_Share_Value: 100000,
+            Available_Balance: 500000,
+            Number_Of_Shares: 500,
+            Total_Share_Value: 500000,
             Status: 'Active',
             Notes: 'Advisory committee'
           }
@@ -5010,28 +5010,28 @@
             Deposit_ID: 'DEP-2001',
             Shareholder_ID: 'SH-1001',
             Shareholder_Name: 'Mohammad Rafiqul Islam',
-            Amount: 150000,
+            Amount: 500000,
             Deposit_Date: '2026-01-10',
             Reference_No: 'INITIAL-CAPITAL',
-            Notes: 'Initial 150 shares purchase'
+            Notes: 'Initial 500 shares purchase'
           },
           {
             Deposit_ID: 'DEP-2002',
             Shareholder_ID: 'SH-1002',
             Shareholder_Name: 'Begum Shamsun Nahar',
-            Amount: 200000,
+            Amount: 500000,
             Deposit_Date: '2026-02-01',
             Reference_No: 'CHQ-889901',
-            Notes: 'Initial 200 shares purchase'
+            Notes: 'Initial 500 shares purchase'
           },
           {
             Deposit_ID: 'DEP-2003',
             Shareholder_ID: 'SH-1003',
             Shareholder_Name: 'Engr. Tanvir Ahmed',
-            Amount: 100000,
+            Amount: 500000,
             Deposit_Date: '2026-03-15',
             Reference_No: 'EFT-332211',
-            Notes: 'Initial 100 shares purchase'
+            Notes: 'Initial 500 shares purchase'
           }
         ],
         withdrawals: [
@@ -5165,7 +5165,7 @@
             Entity_Type: 'Shareholder',
             Entity_ID: 'SH-1001',
             Entity_Name: 'Mohammad Rafiqul Islam',
-            Amount: 150000,
+            Amount: 500000,
             Direction: 'IN',
             Reference_No: 'INITIAL-CAPITAL',
             Notes: 'Initial share subscription'
@@ -5178,7 +5178,7 @@
             Entity_Type: 'Shareholder',
             Entity_ID: 'SH-1002',
             Entity_Name: 'Begum Shamsun Nahar',
-            Amount: 200000,
+            Amount: 500000,
             Direction: 'IN',
             Reference_No: 'CHQ-889901',
             Notes: 'Initial share subscription'
@@ -5191,7 +5191,7 @@
             Entity_Type: 'Shareholder',
             Entity_ID: 'SH-1003',
             Entity_Name: 'Engr. Tanvir Ahmed',
-            Amount: 100000,
+            Amount: 500000,
             Direction: 'IN',
             Reference_No: 'EFT-332211',
             Notes: 'Initial share subscription'
@@ -5224,6 +5224,19 @@
           },
           {
             Transaction_ID: 'TXN-5006',
+            Date: '2026-05-01',
+            Type: 'LOAN_DISBURSEMENT',
+            Category: '0% Interest Loan',
+            Entity_Type: 'Outside Individual',
+            Entity_ID: 'BR-1002',
+            Entity_Name: 'Farhan Kabir Chowdhury',
+            Amount: 150000,
+            Direction: 'OUT',
+            Reference_No: 'LN-4002',
+            Notes: 'Disbursement of 0% interest trade finance'
+          },
+          {
+            Transaction_ID: 'TXN-5007',
             Date: '2026-05-14',
             Type: 'LOAN_REPAYMENT',
             Category: 'Installment Collection',
@@ -5252,13 +5265,18 @@
           let totalOutstandingLoanAmount = db.loans.reduce((s, x) => s + (Number(x.Remaining_Amount) || 0), 0);
           let totalActiveLoans = db.loans.filter(l => l.Loan_Status === 'Active').length;
 
+          const totalMemberEquity = totalDeposits - totalWithdrawals;
+          const netLiquidity = totalMemberEquity - totalOutstandingLoanAmount;
+
           callback({
             metrics: {
               totalShareholders,
               totalShares,
               totalDeposits,
               totalWithdrawals,
-              totalAvailableBalance: totalDeposits - totalWithdrawals,
+              totalAvailableBalance: netLiquidity,
+              netLiquidity: netLiquidity,
+              totalMemberEquity: totalMemberEquity,
               totalActiveLoans,
               totalLoanAmount,
               totalOutstandingLoanAmount

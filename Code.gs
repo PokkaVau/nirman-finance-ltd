@@ -443,8 +443,6 @@ function getDashboardData() {
     totalWithdrawals += Number(s.Total_Withdrawn) || 0;
   });
 
-  const totalAvailableBalance = totalDeposits - totalWithdrawals;
-
   loans.forEach(l => {
     totalLoanAmount += Number(l.Loan_Amount) || 0;
     totalOutstandingLoanAmount += Number(l.Remaining_Amount) || 0;
@@ -452,6 +450,11 @@ function getDashboardData() {
       totalActiveLoans++;
     }
   });
+
+  // Net Liquidity = Inflows (Deposits + Repayments) - Outflows (Withdrawals + Disbursements)
+  // Mathematically identical to: (Total Deposits - Total Withdrawals) - Total Outstanding Loans
+  const totalMemberEquity = totalDeposits - totalWithdrawals;
+  const netLiquidity = totalMemberEquity - totalOutstandingLoanAmount;
 
   // Monthly trends (Last 6 Months)
   const monthlyData = getMonthlyTrends(deposits, withdrawals, loans);
@@ -474,7 +477,9 @@ function getDashboardData() {
         totalShares,
         totalDeposits,
         totalWithdrawals,
-        totalAvailableBalance,
+        totalAvailableBalance: netLiquidity,
+        netLiquidity,
+        totalMemberEquity,
         totalActiveLoans,
         totalLoanAmount,
         totalOutstandingLoanAmount
@@ -1768,7 +1773,7 @@ function seedDemoData() {
     Address: 'House 42, Road 11, Banani, Dhaka',
     NID_Number: '19822694580001234',
     Joining_Date: '2026-01-10',
-    Number_Of_Shares: 150,
+    Number_Of_Shares: 500,
     Status: 'Active',
     Notes: 'Founding member and director'
   });
@@ -1780,7 +1785,7 @@ function seedDemoData() {
     Address: 'Flat 4B, Concord Tower, Dhanmondi, Dhaka',
     NID_Number: '19792694580005678',
     Joining_Date: '2026-02-01',
-    Number_Of_Shares: 200,
+    Number_Of_Shares: 500,
     Status: 'Active',
     Notes: 'Senior investor'
   });
@@ -1792,7 +1797,7 @@ function seedDemoData() {
     Address: 'Plot 15, Sector 4, Uttara, Dhaka',
     NID_Number: '19882694580009988',
     Joining_Date: '2026-03-15',
-    Number_Of_Shares: 100,
+    Number_Of_Shares: 500,
     Status: 'Active',
     Notes: 'Advisory committee'
   });
