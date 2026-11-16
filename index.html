@@ -1560,7 +1560,7 @@
               <div class="bezel-inner metric-card-inner">
                 <div class="metric-top">
                   <div>
-                    <div class="eyebrow eyebrow-green">Cash in Hand / Bank</div>
+                    <div class="eyebrow eyebrow-green">Available Cash</div>
                     <div class="metric-title">Net Liquidity</div>
                   </div>
                   <div class="metric-icon-wrap metric-icon-green">
@@ -1568,7 +1568,7 @@
                   </div>
                 </div>
                 <div class="metric-value metric-value-green tnum" id="metricAvailableBalance">৳ 0</div>
-                <div class="metric-sub">Inflow minus Outflow (Available Cash)</div>
+                <div class="metric-sub">Member Equity: <strong id="metricMemberEquity">৳ 0</strong></div>
               </div>
             </div>
 
@@ -1619,7 +1619,7 @@
                   </div>
                 </div>
                 <div class="metric-value tnum" id="metricOutstandingLoans">৳ 0</div>
-                <div class="metric-sub">Remaining balance to collect</div>
+                <div class="metric-sub">Recovered: <strong id="metricLoanRecovered">৳ 0</strong></div>
               </div>
             </div>
 
@@ -3141,9 +3141,15 @@
     document.getElementById('metricTotalDeposits').textContent = formatBDT(m.totalDeposits || 0);
     document.getElementById('metricTotalWithdrawals').textContent = formatBDT(m.totalWithdrawals || 0);
     document.getElementById('metricAvailableBalance').textContent = formatBDT(m.netLiquidity !== undefined ? m.netLiquidity : (m.totalAvailableBalance || 0));
+    if (document.getElementById('metricMemberEquity')) {
+      document.getElementById('metricMemberEquity').textContent = formatBDT(m.totalMemberEquity !== undefined ? m.totalMemberEquity : ((m.totalDeposits || 0) - (m.totalWithdrawals || 0)));
+    }
     document.getElementById('metricActiveLoans').textContent = (m.totalActiveLoans || 0).toLocaleString();
     document.getElementById('metricTotalLoanAmount').textContent = formatBDT(m.totalLoanAmount || 0);
     document.getElementById('metricOutstandingLoans').textContent = formatBDT(m.totalOutstandingLoanAmount || 0);
+    if (document.getElementById('metricLoanRecovered')) {
+      document.getElementById('metricLoanRecovered').textContent = formatBDT(m.totalLoanRepaid !== undefined ? m.totalLoanRepaid : ((m.totalLoanAmount || 0) - (m.totalOutstandingLoanAmount || 0)));
+    }
 
     // Render Charts
     renderCashFlowChart(dash.charts || []);
@@ -4652,7 +4658,7 @@
             <div class="eyebrow eyebrow-green">Gross Inflow</div>
             <div class="metric-title">Total Capital In</div>
             <div class="metric-value metric-value-green tnum">${formatBDT(s.totalInflow)}</div>
-            <div class="metric-sub">Deposits (৳ ${formatBDT(b.deposits)}) + Repayments (৳ ${formatBDT(b.repayments)})</div>
+            <div class="metric-sub">Deposits (${formatBDT(b.deposits)}) + Repayments (${formatBDT(b.repayments)})</div>
           </div>
         </div>
         <div class="bezel-card">
@@ -4660,7 +4666,7 @@
             <div class="eyebrow eyebrow-navy">Gross Outflow</div>
             <div class="metric-title">Total Capital Out</div>
             <div class="metric-value tnum">${formatBDT(s.totalOutflow)}</div>
-            <div class="metric-sub">Withdrawals (৳ ${formatBDT(b.withdrawals)}) + Disbursed (৳ ${formatBDT(b.disbursements)})</div>
+            <div class="metric-sub">Withdrawals (${formatBDT(b.withdrawals)}) + Disbursed (${formatBDT(b.disbursements)})</div>
           </div>
         </div>
         <div class="bezel-card">
@@ -4964,11 +4970,11 @@
             Address: 'House 42, Road 11, Banani, Dhaka',
             NID_Number: '19822694580001234',
             Joining_Date: '2026-01-10',
-            Total_Deposited: 500000,
+            Total_Deposited: 150000,
             Total_Withdrawn: 0,
-            Available_Balance: 500000,
-            Number_Of_Shares: 500,
-            Total_Share_Value: 500000,
+            Available_Balance: 150000,
+            Number_Of_Shares: 150,
+            Total_Share_Value: 150000,
             Status: 'Active',
             Notes: 'Founding member and director'
           },
@@ -4980,11 +4986,11 @@
             Address: 'Flat 4B, Concord Tower, Dhanmondi, Dhaka',
             NID_Number: '19792694580005678',
             Joining_Date: '2026-02-01',
-            Total_Deposited: 500000,
+            Total_Deposited: 200000,
             Total_Withdrawn: 20000,
-            Available_Balance: 480000,
-            Number_Of_Shares: 480,
-            Total_Share_Value: 480000,
+            Available_Balance: 180000,
+            Number_Of_Shares: 180,
+            Total_Share_Value: 180000,
             Status: 'Active',
             Notes: 'Senior investor'
           },
@@ -4996,11 +5002,11 @@
             Address: 'Plot 15, Sector 4, Uttara, Dhaka',
             NID_Number: '19882694580009988',
             Joining_Date: '2026-03-15',
-            Total_Deposited: 500000,
+            Total_Deposited: 100000,
             Total_Withdrawn: 0,
-            Available_Balance: 500000,
-            Number_Of_Shares: 500,
-            Total_Share_Value: 500000,
+            Available_Balance: 100000,
+            Number_Of_Shares: 100,
+            Total_Share_Value: 100000,
             Status: 'Active',
             Notes: 'Advisory committee'
           }
@@ -5010,28 +5016,28 @@
             Deposit_ID: 'DEP-2001',
             Shareholder_ID: 'SH-1001',
             Shareholder_Name: 'Mohammad Rafiqul Islam',
-            Amount: 500000,
+            Amount: 150000,
             Deposit_Date: '2026-01-10',
             Reference_No: 'INITIAL-CAPITAL',
-            Notes: 'Initial 500 shares purchase'
+            Notes: 'Initial 150 shares purchase'
           },
           {
             Deposit_ID: 'DEP-2002',
             Shareholder_ID: 'SH-1002',
             Shareholder_Name: 'Begum Shamsun Nahar',
-            Amount: 500000,
+            Amount: 200000,
             Deposit_Date: '2026-02-01',
             Reference_No: 'CHQ-889901',
-            Notes: 'Initial 500 shares purchase'
+            Notes: 'Initial 200 shares purchase'
           },
           {
             Deposit_ID: 'DEP-2003',
             Shareholder_ID: 'SH-1003',
             Shareholder_Name: 'Engr. Tanvir Ahmed',
-            Amount: 500000,
+            Amount: 100000,
             Deposit_Date: '2026-03-15',
             Reference_No: 'EFT-332211',
-            Notes: 'Initial 500 shares purchase'
+            Notes: 'Initial 100 shares purchase'
           }
         ],
         withdrawals: [
@@ -5079,13 +5085,13 @@
             Borrower_ID: 'BR-1001',
             Borrower_Name: 'Apex Logistics & Transport LTD',
             Borrower_Type: 'Company / Business',
-            Loan_Amount: 600000,
+            Loan_Amount: 150000,
             Loan_Date: '2026-04-15',
-            Duration_Months: 12,
-            Monthly_Installment: 50000,
+            Duration_Months: 6,
+            Monthly_Installment: 25000,
             First_Installment_Date: '2026-05-15',
-            Total_Paid: 50000,
-            Remaining_Amount: 550000,
+            Total_Paid: 25000,
+            Remaining_Amount: 125000,
             Loan_Status: 'Active',
             Notes: '0% Interest commercial transport loan'
           },
@@ -5094,13 +5100,13 @@
             Borrower_ID: 'BR-1002',
             Borrower_Name: 'Farhan Kabir Chowdhury',
             Borrower_Type: 'Outside Individual',
-            Loan_Amount: 150000,
+            Loan_Amount: 100000,
             Loan_Date: '2026-05-01',
-            Duration_Months: 6,
-            Monthly_Installment: 25000,
+            Duration_Months: 5,
+            Monthly_Installment: 20000,
             First_Installment_Date: '2026-06-01',
             Total_Paid: 0,
-            Remaining_Amount: 150000,
+            Remaining_Amount: 100000,
             Loan_Status: 'Active',
             Notes: '0% Interest trade supply finance'
           }
@@ -5113,8 +5119,8 @@
             Borrower_Name: 'Apex Logistics & Transport LTD',
             Installment_Number: 1,
             Due_Date: '2026-05-15',
-            Due_Amount: 50000,
-            Paid_Amount: 50000,
+            Due_Amount: 25000,
+            Paid_Amount: 25000,
             Balance_Due: 0,
             Status: 'Paid'
           },
@@ -5125,9 +5131,9 @@
             Borrower_Name: 'Apex Logistics & Transport LTD',
             Installment_Number: 2,
             Due_Date: '2026-06-15',
-            Due_Amount: 50000,
+            Due_Amount: 25000,
             Paid_Amount: 0,
-            Balance_Due: 50000,
+            Balance_Due: 25000,
             Status: 'Pending'
           },
           {
@@ -5137,9 +5143,9 @@
             Borrower_Name: 'Farhan Kabir Chowdhury',
             Installment_Number: 1,
             Due_Date: '2026-06-01',
-            Due_Amount: 25000,
+            Due_Amount: 20000,
             Paid_Amount: 0,
-            Balance_Due: 25000,
+            Balance_Due: 20000,
             Status: 'Pending'
           }
         ],
@@ -5150,7 +5156,7 @@
             Borrower_ID: 'BR-1001',
             Borrower_Name: 'Apex Logistics & Transport LTD',
             Installment_ID: 'LN-4001-INS-01',
-            Amount_Paid: 50000,
+            Amount_Paid: 25000,
             Payment_Date: '2026-05-14',
             Reference_No: 'CHQ-778901',
             Notes: 'First monthly installment paid via Account Payee Cheque'
@@ -5165,7 +5171,7 @@
             Entity_Type: 'Shareholder',
             Entity_ID: 'SH-1001',
             Entity_Name: 'Mohammad Rafiqul Islam',
-            Amount: 500000,
+            Amount: 150000,
             Direction: 'IN',
             Reference_No: 'INITIAL-CAPITAL',
             Notes: 'Initial share subscription'
@@ -5178,7 +5184,7 @@
             Entity_Type: 'Shareholder',
             Entity_ID: 'SH-1002',
             Entity_Name: 'Begum Shamsun Nahar',
-            Amount: 500000,
+            Amount: 200000,
             Direction: 'IN',
             Reference_No: 'CHQ-889901',
             Notes: 'Initial share subscription'
@@ -5191,7 +5197,7 @@
             Entity_Type: 'Shareholder',
             Entity_ID: 'SH-1003',
             Entity_Name: 'Engr. Tanvir Ahmed',
-            Amount: 500000,
+            Amount: 100000,
             Direction: 'IN',
             Reference_No: 'EFT-332211',
             Notes: 'Initial share subscription'
@@ -5217,10 +5223,10 @@
             Entity_Type: 'Company / Business',
             Entity_ID: 'BR-1001',
             Entity_Name: 'Apex Logistics & Transport LTD',
-            Amount: 600000,
+            Amount: 150000,
             Direction: 'OUT',
             Reference_No: 'LN-4001',
-            Notes: 'Disbursement of 0% interest loan for 12 months'
+            Notes: 'Disbursement of 0% interest loan for 6 months'
           },
           {
             Transaction_ID: 'TXN-5006',
@@ -5230,7 +5236,7 @@
             Entity_Type: 'Outside Individual',
             Entity_ID: 'BR-1002',
             Entity_Name: 'Farhan Kabir Chowdhury',
-            Amount: 150000,
+            Amount: 100000,
             Direction: 'OUT',
             Reference_No: 'LN-4002',
             Notes: 'Disbursement of 0% interest trade finance'
@@ -5243,7 +5249,7 @@
             Entity_Type: 'Company / Business',
             Entity_ID: 'BR-1001',
             Entity_Name: 'Apex Logistics & Transport LTD',
-            Amount: 50000,
+            Amount: 25000,
             Direction: 'IN',
             Reference_No: 'CHQ-778901',
             Notes: 'Installment #1 Payment for Loan LN-4001'
@@ -5262,11 +5268,12 @@
           let totalDeposits = db.deposits.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
           let totalWithdrawals = db.withdrawals.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
           let totalLoanAmount = db.loans.reduce((s, x) => s + (Number(x.Loan_Amount) || 0), 0);
-          let totalOutstandingLoanAmount = db.loans.reduce((s, x) => s + (Number(x.Remaining_Amount) || 0), 0);
+          let totalLoanRepaid = db.loans.reduce((s, x) => s + (Number(x.Total_Paid) || 0), 0);
+          let totalOutstandingLoanAmount = Math.max(0, totalLoanAmount - totalLoanRepaid);
           let totalActiveLoans = db.loans.filter(l => l.Loan_Status === 'Active').length;
 
           const totalMemberEquity = totalDeposits - totalWithdrawals;
-          const netLiquidity = totalMemberEquity - totalOutstandingLoanAmount;
+          const netLiquidity = (totalDeposits + totalLoanRepaid) - (totalWithdrawals + totalLoanAmount);
 
           callback({
             metrics: {
@@ -5279,6 +5286,7 @@
               totalMemberEquity: totalMemberEquity,
               totalActiveLoans,
               totalLoanAmount,
+              totalLoanRepaid,
               totalOutstandingLoanAmount
             },
             charts: [
@@ -5286,8 +5294,8 @@
               { label: 'Feb 2026', deposits: 200000, withdrawals: 0 },
               { label: 'Mar 2026', deposits: 100000, withdrawals: 0 },
               { label: 'Apr 2026', deposits: 0, withdrawals: 20000 },
-              { label: 'May 2026', deposits: 50000, withdrawals: 0 },
-              { label: 'Jun 2026', deposits: 25000, withdrawals: 0 }
+              { label: 'May 2026', deposits: 25000, withdrawals: 0 },
+              { label: 'Jun 2026', deposits: 0, withdrawals: 0 }
             ],
             recentTransactions: db.transactions.slice(-6).reverse(),
             upcomingInstallments: db.installments.filter(i => i.Status !== 'Paid')
@@ -5671,23 +5679,44 @@
           const dTo = (typeof args === 'object' && args !== null) ? args.dateTo : null;
 
           if (type === 'financial_summary') {
-            let txns = db.transactions;
-            if (dFrom) txns = txns.filter(t => t.Date >= dFrom);
-            if (dTo) txns = txns.filter(t => t.Date <= dTo);
+            let deps = db.deposits;
+            let wths = db.withdrawals;
+            let loans = db.loans;
+            let payments = db.payments;
 
-            const inTotal = txns.filter(t => t.Direction === 'IN').reduce((s, x) => s + Number(x.Amount), 0);
-            const outTotal = txns.filter(t => t.Direction === 'OUT').reduce((s, x) => s + Number(x.Amount), 0);
+            if (dFrom) {
+              deps = deps.filter(d => d.Deposit_Date >= dFrom);
+              wths = wths.filter(w => w.Withdrawal_Date >= dFrom);
+              loans = loans.filter(l => l.Loan_Date >= dFrom);
+              payments = payments.filter(p => p.Payment_Date >= dFrom);
+            }
+            if (dTo) {
+              deps = deps.filter(d => d.Deposit_Date <= dTo);
+              wths = wths.filter(w => w.Withdrawal_Date <= dTo);
+              loans = loans.filter(l => l.Loan_Date <= dTo);
+              payments = payments.filter(p => p.Payment_Date <= dTo);
+            }
+
+            const depTotal = deps.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
+            const wthTotal = wths.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
+            const loanTotal = loans.reduce((s, x) => s + (Number(x.Loan_Amount) || 0), 0);
+            const repayTotal = payments.reduce((s, x) => s + (Number(x.Amount_Paid) || 0), 0);
+
+            const inTotal = depTotal + repayTotal;
+            const outTotal = wthTotal + loanTotal;
+            const netLiq = inTotal - outTotal;
+
             callback({
               totalInflow: inTotal,
               totalOutflow: outTotal,
-              netLiquidity: inTotal - outTotal,
+              netLiquidity: netLiq,
               breakdown: {
-                deposits: txns.filter(t => t.Type === 'DEPOSIT').reduce((s, x) => s + Number(x.Amount), 0),
-                repayments: txns.filter(t => t.Type === 'LOAN_REPAYMENT').reduce((s, x) => s + Number(x.Amount), 0),
-                withdrawals: txns.filter(t => t.Type === 'WITHDRAWAL').reduce((s, x) => s + Number(x.Amount), 0),
-                disbursements: txns.filter(t => t.Type === 'LOAN_DISBURSEMENT').reduce((s, x) => s + Number(x.Amount), 0)
+                deposits: depTotal,
+                repayments: repayTotal,
+                withdrawals: wthTotal,
+                disbursements: loanTotal
               },
-              transactionCount: txns.length
+              transactionCount: deps.length + wths.length + loans.length + payments.length
             });
           } else if (type === 'individual_member') {
             const memberId = (typeof args === 'object' && args !== null) ? args.memberId : null;

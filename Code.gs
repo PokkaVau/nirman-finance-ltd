@@ -426,35 +426,59 @@ function getDashboardData() {
   const withdrawals = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.WITHDRAWALS));
   const loans = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.LOANS));
   const installments = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.INSTALLMENTS));
+  const payments = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENTS));
   const transactions = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.TRANSACTIONS));
 
-  // Compute Metrics
+  // Compute Metrics robustly across both primary ledger sheets and aggregate columns
   let totalShareholders = shareholders.length;
-  let totalShares = 0;
-  let totalDeposits = 0;
-  let totalWithdrawals = 0;
+  let totalShares = shareholders.reduce((s, x) => s + (Number(x.Number_Of_Shares) || 0), 0);
+
+  // Deposits: use primary Deposits sheet if populated, fallback to shareholders Total_Deposited
+  const depSheetTotal = deposits.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
+  const shDepTotal = shareholders.reduce((s, x) => s + (Number(s.Total_Deposited) || 0), 0);
+  const totalDeposits = depSheetTotal > 0 ? depSheetTotal : shDepTotal;
+
+  // Withdrawals: use primary Withdrawals sheet if populated, fallback to shareholders Total_Withdrawn
+  const wthSheetTotal = withdrawals.reduce((s, x) => s + (Number(x.Amount) || 0), 0);
+  const shWthTotal = shareholders.reduce((s, x) => s + (Number(s.Total_Withdrawn) || 0), 0);
+  const totalWithdrawals = wthSheetTotal > 0 ? wthSheetTotal : shWthTotal;
+
+  // Member Equity (Total Member Capital = Deposits - Withdrawals)
+  const totalMemberEquity = totalDeposits - totalWithdrawals;
+
+  // Loans: Disbursed, Repaid, Outstanding
   let totalLoanAmount = 0;
+  let totalLoanRepaid = 0;
   let totalOutstandingLoanAmount = 0;
   let totalActiveLoans = 0;
 
-  shareholders.forEach(s => {
-    totalShares += Number(s.Number_Of_Shares) || 0;
-    totalDeposits += Number(s.Total_Deposited) || 0;
-    totalWithdrawals += Number(s.Total_Withdrawn) || 0;
-  });
-
   loans.forEach(l => {
-    totalLoanAmount += Number(l.Loan_Amount) || 0;
-    totalOutstandingLoanAmount += Number(l.Remaining_Amount) || 0;
+    const loanAmt = Number(l.Loan_Amount) || 0;
+    const paidAmt = Number(l.Total_Paid) || 0;
+    const remainingAmt = (l.Remaining_Amount !== undefined && l.Remaining_Amount !== null && String(l.Remaining_Amount).trim() !== '')
+      ? Number(l.Remaining_Amount)
+      : Math.max(0, loanAmt - paidAmt);
+
+    totalLoanAmount += loanAmt;
+    totalLoanRepaid += paidAmt;
+    totalOutstandingLoanAmount += remainingAmt;
+
     if (String(l.Loan_Status).toLowerCase() === 'active') {
       totalActiveLoans++;
     }
   });
 
-  // Net Liquidity = Inflows (Deposits + Repayments) - Outflows (Withdrawals + Disbursements)
-  // Mathematically identical to: (Total Deposits - Total Withdrawals) - Total Outstanding Loans
-  const totalMemberEquity = totalDeposits - totalWithdrawals;
-  const netLiquidity = totalMemberEquity - totalOutstandingLoanAmount;
+  // Cross-check repayments with Payments sheet
+  const paymentsTotal = payments.reduce((s, x) => s + (Number(x.Amount_Paid) || 0), 0);
+  if (paymentsTotal > totalLoanRepaid) {
+    totalLoanRepaid = paymentsTotal;
+    totalOutstandingLoanAmount = Math.max(0, totalLoanAmount - totalLoanRepaid);
+  }
+
+  // Net Liquidity = Actual Cash in Hand/Bank
+  // Total Cash Inflows (Deposits + Loan Repayments) - Total Cash Outflows (Withdrawals + Loan Disbursements)
+  // = totalMemberEquity - totalOutstandingLoanAmount
+  const netLiquidity = (totalDeposits + totalLoanRepaid) - (totalWithdrawals + totalLoanAmount);
 
   // Monthly trends (Last 6 Months)
   const monthlyData = getMonthlyTrends(deposits, withdrawals, loans);
@@ -482,6 +506,7 @@ function getDashboardData() {
         totalMemberEquity,
         totalActiveLoans,
         totalLoanAmount,
+        totalLoanRepaid,
         totalOutstandingLoanAmount
       },
       charts: monthlyData,
@@ -1606,31 +1631,31 @@ function getReportData(reportTypeOrParams, dateFrom, dateTo) {
       return { success: true, data: outstanding };
     }
     case 'financial_summary': {
-      let txns = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.TRANSACTIONS));
-      if (dFrom) txns = txns.filter(t => t.Date >= dFrom);
-      if (dTo) txns = txns.filter(t => t.Date <= dTo);
+      let deps = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.DEPOSITS));
+      let wths = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.WITHDRAWALS));
+      let loans = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.LOANS));
+      let payments = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENTS));
 
-      let totalInflow = 0;
-      let totalOutflow = 0;
-      let breakdown = {
-        deposits: 0,
-        repayments: 0,
-        withdrawals: 0,
-        disbursements: 0
-      };
+      if (dFrom) {
+        deps = deps.filter(d => d.Deposit_Date >= dFrom);
+        wths = wths.filter(w => w.Withdrawal_Date >= dFrom);
+        loans = loans.filter(l => l.Loan_Date >= dFrom);
+        payments = payments.filter(p => p.Payment_Date >= dFrom);
+      }
+      if (dTo) {
+        deps = deps.filter(d => d.Deposit_Date <= dTo);
+        wths = wths.filter(w => w.Withdrawal_Date <= dTo);
+        loans = loans.filter(l => l.Loan_Date <= dTo);
+        payments = payments.filter(p => p.Payment_Date <= dTo);
+      }
 
-      txns.forEach(t => {
-        const amt = Number(t.Amount) || 0;
-        if (t.Direction === 'IN') {
-          totalInflow += amt;
-          if (t.Type === 'DEPOSIT') breakdown.deposits += amt;
-          if (t.Type === 'LOAN_REPAYMENT') breakdown.repayments += amt;
-        } else if (t.Direction === 'OUT') {
-          totalOutflow += amt;
-          if (t.Type === 'WITHDRAWAL') breakdown.withdrawals += amt;
-          if (t.Type === 'LOAN_DISBURSEMENT') breakdown.disbursements += amt;
-        }
-      });
+      const depTotal = deps.reduce((s, x) => s + (Number(String(x.Amount || 0).replace(/[^0-9.-]+/g, '')) || 0), 0);
+      const wthTotal = wths.reduce((s, x) => s + (Number(String(x.Amount || 0).replace(/[^0-9.-]+/g, '')) || 0), 0);
+      const loanTotal = loans.reduce((s, x) => s + (Number(String(x.Loan_Amount || 0).replace(/[^0-9.-]+/g, '')) || 0), 0);
+      const repayTotal = payments.reduce((s, x) => s + (Number(String(x.Amount_Paid || 0).replace(/[^0-9.-]+/g, '')) || 0), 0);
+
+      const totalInflow = depTotal + repayTotal;
+      const totalOutflow = wthTotal + loanTotal;
 
       return {
         success: true,
@@ -1638,8 +1663,13 @@ function getReportData(reportTypeOrParams, dateFrom, dateTo) {
           totalInflow,
           totalOutflow,
           netLiquidity: totalInflow - totalOutflow,
-          breakdown,
-          transactionCount: txns.length
+          breakdown: {
+            deposits: depTotal,
+            repayments: repayTotal,
+            withdrawals: wthTotal,
+            disbursements: loanTotal
+          },
+          transactionCount: deps.length + wths.length + loans.length + payments.length
         }
       };
     }
@@ -1765,7 +1795,7 @@ function seedDemoData() {
     return { success: false, message: 'Database already contains data. Seeding skipped to preserve existing records.' };
   }
 
-  // 1. Add Realistic Shareholders
+  // 1. Add Realistic Shareholders (Total Shares: 450 = ৳ 450,000 Capital)
   addShareholder({
     Full_Name: 'Mohammad Rafiqul Islam',
     Phone: '+880 1711-234567',
@@ -1773,7 +1803,7 @@ function seedDemoData() {
     Address: 'House 42, Road 11, Banani, Dhaka',
     NID_Number: '19822694580001234',
     Joining_Date: '2026-01-10',
-    Number_Of_Shares: 500,
+    Number_Of_Shares: 150,
     Status: 'Active',
     Notes: 'Founding member and director'
   });
@@ -1785,7 +1815,7 @@ function seedDemoData() {
     Address: 'Flat 4B, Concord Tower, Dhanmondi, Dhaka',
     NID_Number: '19792694580005678',
     Joining_Date: '2026-02-01',
-    Number_Of_Shares: 500,
+    Number_Of_Shares: 200,
     Status: 'Active',
     Notes: 'Senior investor'
   });
@@ -1797,9 +1827,18 @@ function seedDemoData() {
     Address: 'Plot 15, Sector 4, Uttara, Dhaka',
     NID_Number: '19882694580009988',
     Joining_Date: '2026-03-15',
-    Number_Of_Shares: 500,
+    Number_Of_Shares: 100,
     Status: 'Active',
     Notes: 'Advisory committee'
+  });
+
+  // Sample capital withdrawal of ৳ 20,000
+  addWithdrawal({
+    Shareholder_ID: 'SH-1002',
+    Amount: 20000,
+    Withdrawal_Date: '2026-04-05',
+    Reference_No: 'BANK-CHQ-1049',
+    Notes: 'Partial share capital withdrawal'
   });
 
   // 2. Add Borrowers
@@ -1829,14 +1868,14 @@ function seedDemoData() {
     Notes: 'Small enterprise trader'
   });
 
-  // 3. Issue Loans
+  // 3. Issue Realistic Loans within capital (Total Disbursed: ৳ 250,000)
   const loan1 = addLoan({
     Borrower_ID: 'BR-1001',
     Borrower_Name: 'Apex Logistics & Transport LTD',
     Borrower_Type: 'Company / Business',
-    Loan_Amount: 600000,
+    Loan_Amount: 150000,
     Loan_Date: '2026-04-15',
-    Duration_Months: 12,
+    Duration_Months: 6,
     First_Installment_Date: '2026-05-15',
     Notes: '0% Interest commercial transport loan'
   });
@@ -1845,9 +1884,9 @@ function seedDemoData() {
     Borrower_ID: 'BR-1002',
     Borrower_Name: 'Farhan Kabir Chowdhury',
     Borrower_Type: 'Outside Individual',
-    Loan_Amount: 150000,
+    Loan_Amount: 100000,
     Loan_Date: '2026-05-01',
-    Duration_Months: 6,
+    Duration_Months: 5,
     First_Installment_Date: '2026-06-01',
     Notes: '0% Interest trade supply finance'
   });
