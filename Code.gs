@@ -1638,6 +1638,66 @@ function getReportData(reportTypeOrParams, dateFrom, dateTo) {
         }
       };
     }
+    case 'individual_member': {
+      const memberId = (typeof reportTypeOrParams === 'object' && reportTypeOrParams !== null) ? reportTypeOrParams.memberId : null;
+      const shList = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.SHAREHOLDERS));
+      const member = shList.find(s => s.Shareholder_ID === memberId);
+      if (!member) {
+        return { success: false, error: 'Please choose a member from the dropdown.' };
+      }
+      let deps = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.DEPOSITS)).filter(d => d.Shareholder_ID === memberId);
+      let wths = sheetToJSON(ss.getSheetByName(CONFIG.SHEET_NAMES.WITHDRAWALS)).filter(w => w.Shareholder_ID === memberId);
+      if (dFrom) {
+        deps = deps.filter(d => d.Deposit_Date >= dFrom);
+        wths = wths.filter(w => w.Withdrawal_Date >= dFrom);
+      }
+      if (dTo) {
+        deps = deps.filter(d => d.Deposit_Date <= dTo);
+        wths = wths.filter(w => w.Withdrawal_Date <= dTo);
+      }
+
+      let ledger = [];
+      deps.forEach(d => {
+        ledger.push({
+          Date: d.Deposit_Date,
+          Transaction_ID: d.Deposit_ID,
+          Type: 'DEPOSIT',
+          Reference: d.Reference_No || '-',
+          Notes: d.Notes || '-',
+          Inflow: Number(d.Amount) || 0,
+          Outflow: 0
+        });
+      });
+      wths.forEach(w => {
+        ledger.push({
+          Date: w.Withdrawal_Date,
+          Transaction_ID: w.Withdrawal_ID,
+          Type: 'WITHDRAWAL',
+          Reference: w.Reference_No || '-',
+          Notes: w.Notes || '-',
+          Inflow: 0,
+          Outflow: Number(w.Amount) || 0
+        });
+      });
+      ledger.sort((a, b) => (a.Date > b.Date ? 1 : -1));
+
+      let running = 0;
+      ledger.forEach(entry => {
+        running += (entry.Inflow - entry.Outflow);
+        entry.Balance = running;
+      });
+
+      return {
+        success: true,
+        data: {
+          member,
+          ledger,
+          totalInflow: deps.reduce((s, x) => s + (Number(x.Amount) || 0), 0),
+          totalOutflow: wths.reduce((s, x) => s + (Number(x.Amount) || 0), 0),
+          netBalance: member.Available_Balance
+        }
+      };
+    }
     default:
       return { success: false, error: 'Unknown report type requested' };
   }

@@ -795,19 +795,16 @@
                 <table class="corporate-table">
                   <thead>
                     <tr>
-                      <th>Txn ID</th>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Category</th>
-                      <th>Entity</th>
-                      <th>Flow</th>
-                      <th>Amount (৳)</th>
-                      <th>Reference</th>
-                      <th>Notes</th>
+                      <th class="cell-nowrap">Txn ID / Date</th>
+                      <th class="cell-nowrap">Type &amp; Category</th>
+                      <th>Related Party / Entity</th>
+                      <th class="cell-nowrap">Amount (৳)</th>
+                      <th class="cell-nowrap">Reference</th>
+                      <th class="cell-wrap">Notes</th>
                     </tr>
                   </thead>
                   <tbody id="transactionsTableBody">
-                    <tr><td colspan="9" class="text-center">Loading transactions ledger...</td></tr>
+                    <tr><td colspan="6" class="text-center">Loading transactions ledger...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -847,8 +844,9 @@
               <div class="toolbar-wrapper" style="background:#F8FAFD; padding:1rem; border-radius:1rem; border:1px solid var(--border-color);">
                 <div class="form-group" style="min-width:240px;">
                   <label>Select Report Type</label>
-                  <select class="form-control" id="reportTypeSelect" onchange="generateReport()">
+                  <select class="form-control" id="reportTypeSelect" onchange="handleReportTypeChange()">
                     <option value="financial_summary">Monthly Financial Summary</option>
+                    <option value="individual_member">Individual Member Account Statement</option>
                     <option value="shareholders">Shareholder Equity & Shares Report</option>
                     <option value="deposits">Deposit Transactions Report</option>
                     <option value="withdrawals">Withdrawal Operations Report</option>
@@ -856,6 +854,12 @@
                     <option value="borrowers">Borrower Exposure Report</option>
                     <option value="installments">Installment Collection Performance</option>
                     <option value="outstanding">Outstanding Loans Aging</option>
+                  </select>
+                </div>
+                <div class="form-group" id="reportMemberGroup" style="min-width:220px; display:none;">
+                  <label>Choose Member *</label>
+                  <select class="form-control" id="reportMemberSelect" onchange="generateReport()">
+                    <option value="">-- Choose Member --</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -1281,26 +1285,33 @@
               <input type="number" class="form-control" id="loanAmount" min="5000" step="1000" required placeholder="e.g. 100000" oninput="calculateLoanInstallmentPreview()">
             </div>
             <div class="form-group">
-              <label>Duration (Months) *</label>
+              <label>Target Repayment Duration (Months) *</label>
               <input type="number" class="form-control" id="loanDuration" min="1" max="120" value="12" required oninput="calculateLoanInstallmentPreview()">
+              <span class="helper-text">Borrower decides repayment timeframe</span>
             </div>
             <div class="form-group">
               <label>Loan Disbursement Date *</label>
               <input type="date" class="form-control" id="loanDate" required onchange="calculateLoanInstallmentPreview()">
             </div>
             <div class="form-group">
-              <label>First Installment Date *</label>
+              <label>First Repayment Starts From *</label>
               <input type="date" class="form-control" id="loanFirstInstDate" required>
             </div>
 
-            <!-- Installment Preview Box -->
+            <!-- Flexible Repayment Breakdown Box -->
             <div class="form-group form-full" style="background:var(--blue-light); padding:1rem; border-radius:0.75rem; border:1px solid rgba(23, 72, 121, 0.15);">
-              <div class="eyebrow eyebrow-green">0% Interest Installment Breakdown</div>
+              <div class="eyebrow eyebrow-green">0% Interest Flexible Repayment Policy</div>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.25rem;">
-                <span style="font-size:0.85rem; font-weight:700; color:var(--navy-primary);">Monthly Installment:</span>
-                <span style="font-size:1.15rem; font-weight:800; color:var(--green-primary);" id="loanMonthlyPreview">৳ 0</span>
+                <span style="font-size:0.85rem; font-weight:700; color:var(--navy-primary);">Installment Mode:</span>
+                <span style="font-size:1rem; font-weight:800; color:var(--green-primary);">Flexible (মন মতো কিস্তিতে পরিশোধ)</span>
               </div>
-              <span class="helper-text" id="loanFinalInstallmentNote">Final month automatically adjusts any fractional rounding difference.</span>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.35rem; font-size:0.8rem; color:var(--text-muted);">
+                <span>Suggested Monthly Benchmark:</span>
+                <span style="font-weight:700; color:var(--navy-primary);" id="loanMonthlyPreview">~ ৳ 0 / mo</span>
+              </div>
+              <span class="helper-text" id="loanFinalInstallmentNote" style="margin-top:0.4rem; display:block;">
+                ঋণগ্রহীতা যেকোনো সময়ে তার পছন্দমতো যেকোনো পরিমাণ টাকা কিস্তি হিসেবে জমা দিতে পারবেন। প্রতি পেমেন্টে স্বয়ংক্রিয়ভাবে অবশিষ্ট ঋণ সমন্বয় হবে।
+              </span>
             </div>
 
             <div class="form-group form-full">

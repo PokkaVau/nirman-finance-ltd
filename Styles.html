@@ -779,11 +779,11 @@
 
   .corporate-table {
     width: 100%;
-    min-width: 680px;
-    border-collapse: separate;
+    border-collapse: collapse;
     border-spacing: 0;
-    font-size: 0.85rem;
+    font-size: 0.8125rem;
     text-align: left;
+    table-layout: auto;
   }
 
   .corporate-table thead {
@@ -794,22 +794,35 @@
   }
 
   .corporate-table th {
-    padding: 0.9rem 1.25rem;
+    padding: 0.7rem 0.75rem;
     font-weight: 700;
-    font-size: 0.725rem;
+    font-size: 0.6875rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
     color: var(--navy-primary);
     border-bottom: 1px solid var(--border-color);
     white-space: nowrap;
   }
 
   .corporate-table td {
-    padding: 1rem 1.25rem;
+    padding: 0.7rem 0.75rem;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-dark);
     vertical-align: middle;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  .corporate-table td.cell-nowrap,
+  .corporate-table td.tnum,
+  .corporate-table th.cell-nowrap {
     white-space: nowrap;
+  }
+
+  .corporate-table td.cell-wrap {
+    white-space: normal;
+    word-break: break-word;
+    max-width: 240px;
   }
 
   .corporate-table tbody tr {

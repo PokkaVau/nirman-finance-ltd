@@ -1380,19 +1380,12 @@
     const duration = parseInt(document.getElementById('loanDuration').value, 10) || 1;
 
     if (amt > 0 && duration > 0) {
-      if (duration === 1) {
-        document.getElementById('loanMonthlyPreview').textContent = `৳ ${amt.toLocaleString()} / month`;
-        document.getElementById('loanFinalInstallmentNote').textContent =
-          `Month 1: ৳ ${amt.toLocaleString()} (Single installment loan repayment)`;
-      } else {
-        const regular = Math.floor(amt / duration);
-        const finalInst = amt - (regular * (duration - 1));
-        document.getElementById('loanMonthlyPreview').textContent = `৳ ${regular.toLocaleString()} / month`;
-        document.getElementById('loanFinalInstallmentNote').textContent =
-          `Months 1 to ${duration - 1}: ৳ ${regular.toLocaleString()} | Month ${duration} (Final adjustment): ৳ ${finalInst.toLocaleString()} (Total exact: ৳ ${amt.toLocaleString()})`;
-      }
+      const avg = Math.round(amt / duration);
+      document.getElementById('loanMonthlyPreview').textContent = `~ ৳ ${avg.toLocaleString()} / mo`;
+      document.getElementById('loanFinalInstallmentNote').textContent =
+        `ঋণগ্রহীতা ${duration} মাসের মেয়াদে যেকোনো সময়ে তার পছন্দমতো কিস্তির টাকা পরিশোধ করতে পারবেন (বাধ্যতামূলক নির্দিষ্ট মাসিক কিস্তি নেই)।`;
     } else {
-      document.getElementById('loanMonthlyPreview').textContent = '৳ 0';
+      document.getElementById('loanMonthlyPreview').textContent = '~ ৳ 0 / mo';
       document.getElementById('loanFinalInstallmentNote').textContent = '';
     }
   }
@@ -1669,7 +1662,7 @@
     const data = list || state.data.transactions;
 
     if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding:2rem; color:var(--text-muted);">No transactions recorded</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--text-muted);">No transactions recorded</td></tr>';
       return;
     }
 
@@ -1680,15 +1673,27 @@
 
       return `
       <tr>
-        <td><strong>${t.Transaction_ID}</strong></td>
-        <td>${formatDate(t.Date)}</td>
-        <td><span class="badge-status ${isIncome ? 'badge-paid' : 'badge-pending'}">${t.Type}</span></td>
-        <td><small style="color:var(--text-muted);">${t.Category}</small></td>
-        <td><strong>${t.Entity_Name}</strong> <small style="color:var(--text-light);">(${t.Entity_ID})</small></td>
-        <td><strong>${t.Direction}</strong></td>
-        <td class="tnum" style="${amountColor}">${flowSign} ${formatBDT(t.Amount)}</td>
-        <td><span style="font-family:monospace; font-size:0.8rem;">${t.Reference_No || '-'}</span></td>
-        <td>${t.Notes || '-'}</td>
+        <td class="cell-nowrap">
+          <strong>${t.Transaction_ID}</strong>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${formatDate(t.Date)}</div>
+        </td>
+        <td class="cell-nowrap">
+          <span class="badge-status ${isIncome ? 'badge-paid' : 'badge-pending'}">${t.Type}</span>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${t.Category || '-'}</div>
+        </td>
+        <td>
+          <strong>${t.Entity_Name}</strong>
+          <div style="font-size:0.75rem; color:var(--text-light);">${t.Entity_Type ? `[${t.Entity_Type}] ` : ''}(${t.Entity_ID})</div>
+        </td>
+        <td class="tnum" style="${amountColor}; font-size:0.9rem;">
+          ${flowSign} ${formatBDT(t.Amount)}
+        </td>
+        <td class="cell-nowrap">
+          <span style="font-family:monospace; font-size:0.75rem; background:var(--blue-light); padding:0.15rem 0.4rem; border-radius:4px;">${t.Reference_No || '-'}</span>
+        </td>
+        <td class="cell-wrap" style="color:var(--text-muted); font-size:0.8rem;">
+          ${t.Notes || '-'}
+        </td>
       </tr>
     `;
     }).join('');
@@ -1721,15 +1726,42 @@
    */
   let currentReportDataset = [];
 
+  function handleReportTypeChange() {
+    const rType = document.getElementById('reportTypeSelect').value;
+    const memberGroup = document.getElementById('reportMemberGroup');
+    if (memberGroup) {
+      memberGroup.style.display = (rType === 'individual_member') ? 'block' : 'none';
+      if (rType === 'individual_member') {
+        populateShareholderDropdowns();
+      }
+    }
+    generateReport();
+  }
+
   function generateReport() {
     const rType = document.getElementById('reportTypeSelect').value;
     const dFrom = document.getElementById('reportDateFrom').value;
     const dTo = document.getElementById('reportDateTo').value;
+    const memberId = document.getElementById('reportMemberSelect') ? document.getElementById('reportMemberSelect').value : null;
     const container = document.getElementById('reportOutputContainer');
+
+    if (rType === 'individual_member' && !memberId) {
+      container.innerHTML = `
+        <div class="bezel-card" style="text-align:center; padding:3rem 1.5rem; background:#F8FAFD;">
+          <div style="font-size:2rem; margin-bottom:0.5rem;">👤</div>
+          <h3 style="color:var(--navy-primary); font-size:1.1rem; margin-bottom:0.5rem;">Select a Member / Shareholder</h3>
+          <p style="color:var(--text-muted); font-size:0.85rem; max-width:420px; margin:0 auto 1rem;">
+            Please choose a member from the <strong>"Choose Member"</strong> dropdown above to generate their account statement.
+          </p>
+        </div>
+      `;
+      currentReportDataset = null;
+      return;
+    }
 
     container.innerHTML = '<div class="spinner-box"><div class="spinner"></div><p>Compiling report data...</p></div>';
 
-    callBackend('getReportData', { type: rType, dateFrom: dFrom, dateTo: dTo }, res => {
+    callBackend('getReportData', { type: rType, dateFrom: dFrom, dateTo: dTo, memberId: memberId }, res => {
       currentReportDataset = res || [];
       renderReportOutput(rType, res);
     });
@@ -1738,6 +1770,85 @@
   function renderReportOutput(rType, data) {
     const container = document.getElementById('reportOutputContainer');
     if (!container) return;
+
+    if (rType === 'individual_member') {
+      const dataObj = data || {};
+      const m = dataObj.member || {};
+      const ledger = dataObj.ledger || [];
+
+      container.innerHTML = `
+        <div class="bezel-card" style="margin-bottom:1.5rem; background:linear-gradient(135deg, #174879 0%, #245B8E 100%); color:#fff; border:none;">
+          <div class="bezel-inner" style="background:transparent; border:none; padding:1.25rem 1.5rem; color:#fff;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+              <div>
+                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; opacity:0.85;">Member Account Statement</div>
+                <h2 style="font-size:1.4rem; font-weight:800; margin:0.25rem 0; color:#fff;">${m.Full_Name || '-'}</h2>
+                <div style="font-size:0.85rem; opacity:0.9;">
+                  <span>ID: <strong>${m.Shareholder_ID}</strong></span> |
+                  <span>Phone: ${m.Phone || '-'}</span> |
+                  <span>NID: ${m.NID_Number || '-'}</span>
+                </div>
+              </div>
+              <div style="display:flex; gap:1.5rem; flex-wrap:wrap; text-align:right;">
+                <div>
+                  <div style="font-size:0.75rem; opacity:0.8;">Total Shares</div>
+                  <div style="font-size:1.25rem; font-weight:800;">${m.Number_Of_Shares || 0} shares</div>
+                  <div style="font-size:0.75rem; opacity:0.8;">Value: ৳ ${((Number(m.Number_Of_Shares) || 0) * 1000).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div style="font-size:0.75rem; opacity:0.8;">Available Balance</div>
+                  <div style="font-size:1.35rem; font-weight:800; color:#4ade80;">${formatBDT(m.Available_Balance)}</div>
+                  <div style="font-size:0.75rem; opacity:0.8;">In: ${formatBDT(dataObj.totalInflow)} | Out: ${formatBDT(dataObj.totalOutflow)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:0.85rem; color:var(--text-muted); font-weight:700;">
+            Statement Transactions (${ledger.length})
+          </div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">
+            Net Available Balance: <strong style="color:var(--green-primary);">${formatBDT(m.Available_Balance)}</strong>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="corporate-table" id="printableReportTable">
+            <thead>
+              <tr>
+                <th class="cell-nowrap">Date</th>
+                <th class="cell-nowrap">Txn ID</th>
+                <th>Type</th>
+                <th class="cell-nowrap">Deposit (+)</th>
+                <th class="cell-nowrap">Withdrawal (-)</th>
+                <th class="cell-nowrap">Balance</th>
+                <th>Reference</th>
+                <th class="cell-wrap">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ledger.length === 0 ? `<tr><td colspan="8" class="text-center" style="padding:2rem; color:var(--text-muted);">No transaction records found for this period.</td></tr>` : 
+                ledger.map(row => `
+                  <tr>
+                    <td class="cell-nowrap">${formatDate(row.Date)}</td>
+                    <td class="cell-nowrap"><strong>${row.Transaction_ID}</strong></td>
+                    <td class="cell-nowrap"><span class="badge-status ${row.Type === 'DEPOSIT' ? 'badge-paid' : 'badge-pending'}">${row.Type}</span></td>
+                    <td class="tnum" style="color:var(--green-primary); font-weight:700;">${row.Inflow > 0 ? '+ ' + formatBDT(row.Inflow) : '-'}</td>
+                    <td class="tnum" style="color:var(--danger-red); font-weight:700;">${row.Outflow > 0 ? '- ' + formatBDT(row.Outflow) : '-'}</td>
+                    <td class="tnum" style="font-weight:700; color:var(--navy-primary);">${formatBDT(row.Balance)}</td>
+                    <td class="cell-nowrap"><span style="font-family:monospace; font-size:0.75rem;">${row.Reference || '-'}</span></td>
+                    <td class="cell-wrap" style="color:var(--text-muted); font-size:0.8rem;">${row.Notes || '-'}</td>
+                  </tr>
+                `).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      `;
+      return;
+    }
 
     if (rType === 'financial_summary') {
       const s = data || {};
@@ -1826,6 +1937,30 @@
 
       downloadCSV(csv, `Nirman_Finance_Financial_Summary_${getLocalDateString()}.csv`);
       showToast('Financial Summary CSV exported!');
+      return;
+    }
+
+    if (rType === 'individual_member') {
+      const data = currentReportDataset || {};
+      const m = data.member || {};
+      const ledger = data.ledger || [];
+
+      let csv = `"MEMBER STATEMENT - NIRMAN FINANCE LTD"\r\n`;
+      csv += `"Member Name","${m.Full_Name || ''}"\r\n`;
+      csv += `"Shareholder ID","${m.Shareholder_ID || ''}"\r\n`;
+      csv += `"Phone","${m.Phone_Number || m.Phone || ''}"\r\n`;
+      csv += `"Total Shares","${m.Number_Of_Shares || 0}"\r\n`;
+      csv += `"Available Balance","${m.Available_Balance || 0}"\r\n`;
+      csv += `"Total Inflow","${data.totalInflow || 0}"\r\n`;
+      csv += `"Total Outflow","${data.totalOutflow || 0}"\r\n\r\n`;
+
+      csv += `"Date","Txn ID","Type","Deposit (+)","Withdrawal (-)","Balance","Reference","Notes"\r\n`;
+      ledger.forEach(row => {
+        csv += `"${row.Date || ''}","${row.Transaction_ID || ''}","${row.Type || ''}","${row.Inflow || 0}","${row.Outflow || 0}","${row.Balance || 0}","${(row.Reference || '').replace(/"/g, '""')}","${(row.Notes || '').replace(/"/g, '""')}"\r\n`;
+      });
+
+      downloadCSV(csv, `Statement_${m.Shareholder_ID || 'member'}_${getLocalDateString()}.csv`);
+      showToast('Member Statement CSV exported!');
       return;
     }
 
@@ -1972,6 +2107,7 @@
     const depSelect = document.getElementById('depShareholderSelect');
     const wthSelect = document.getElementById('wthShareholderSelect');
     const quickDepSelect = document.getElementById('quickDepShareholder');
+    const reportMemberSelect = document.getElementById('reportMemberSelect');
 
     const options = '<option value="">-- Choose Shareholder --</option>' +
       state.data.shareholders.map(s => `
@@ -1981,6 +2117,11 @@
     if (depSelect) depSelect.innerHTML = options;
     if (wthSelect) wthSelect.innerHTML = options;
     if (quickDepSelect) quickDepSelect.innerHTML = options;
+    if (reportMemberSelect) {
+      const cur = reportMemberSelect.value;
+      reportMemberSelect.innerHTML = options;
+      if (cur) reportMemberSelect.value = cur;
+    }
   }
 
   /**
@@ -2738,6 +2879,59 @@
                 disbursements: txns.filter(t => t.Type === 'LOAN_DISBURSEMENT').reduce((s, x) => s + Number(x.Amount), 0)
               },
               transactionCount: txns.length
+            });
+          } else if (type === 'individual_member') {
+            const memberId = (typeof args === 'object' && args !== null) ? args.memberId : null;
+            const member = db.shareholders.find(s => s.Shareholder_ID === memberId);
+            if (!member) {
+              callback({ member: null, ledger: [], totalInflow: 0, totalOutflow: 0, netBalance: 0 });
+              return;
+            }
+            let deps = db.deposits.filter(d => d.Shareholder_ID === memberId);
+            let wths = db.withdrawals.filter(w => w.Shareholder_ID === memberId);
+            if (dFrom) {
+              deps = deps.filter(d => d.Deposit_Date >= dFrom);
+              wths = wths.filter(w => w.Withdrawal_Date >= dFrom);
+            }
+            if (dTo) {
+              deps = deps.filter(d => d.Deposit_Date <= dTo);
+              wths = wths.filter(w => w.Withdrawal_Date <= dTo);
+            }
+            let ledger = [];
+            deps.forEach(d => {
+              ledger.push({
+                Date: d.Deposit_Date,
+                Transaction_ID: d.Deposit_ID,
+                Type: 'DEPOSIT',
+                Reference: d.Reference_No || '-',
+                Notes: d.Notes || '-',
+                Inflow: Number(d.Amount) || 0,
+                Outflow: 0
+              });
+            });
+            wths.forEach(w => {
+              ledger.push({
+                Date: w.Withdrawal_Date,
+                Transaction_ID: w.Withdrawal_ID,
+                Type: 'WITHDRAWAL',
+                Reference: w.Reference_No || '-',
+                Notes: w.Notes || '-',
+                Inflow: 0,
+                Outflow: Number(w.Amount) || 0
+              });
+            });
+            ledger.sort((a, b) => (a.Date > b.Date ? 1 : -1));
+            let running = 0;
+            ledger.forEach(entry => {
+              running += (entry.Inflow - entry.Outflow);
+              entry.Balance = running;
+            });
+            callback({
+              member,
+              ledger,
+              totalInflow: deps.reduce((s, x) => s + (Number(x.Amount) || 0), 0),
+              totalOutflow: wths.reduce((s, x) => s + (Number(x.Amount) || 0), 0),
+              netBalance: member.Available_Balance
             });
           } else if (type === 'shareholders') {
             callback(db.shareholders);
